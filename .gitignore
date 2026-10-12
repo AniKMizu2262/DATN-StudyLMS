@@ -1,0 +1,45 @@
+# ==============================
+# DEPENDENCIES / THƯ VIỆN PHỤ THUỘC
+# ==============================
+node_modules/              # Thư viện Node.js / Node.js dependencies
+
+# ==============================
+# ENVIRONMENT / BIẾN MÔI TRƯỜNG
+# ==============================
+.env                       # Bí mật và cấu hình cục bộ / Local secrets and configuration
+.env.*                     # Các file môi trường khác / Other environment files
+!.env.example              # Cho phép file mẫu / Keep the example environment file
+
+# ==============================
+# BUILD OUTPUTS / FILE SAU KHI BUILD
+# ==============================
+dist/                      # Kết quả build / Build output
+build/                     # Thư mục build / Build directory
+coverage/                  # Báo cáo kiểm thử / Test coverage reports
+
+# ==============================
+# LOGS / NHẬT KÝ
+# ==============================
+*.log                      # File nhật ký / Log files
+npm-debug.log*             # Nhật ký lỗi npm / npm debug logs
+
+# ==============================cd /d F:\DATN-LMS_Study
+# PYTHON / MÔI TRƯỜNG PYTHON
+# ==============================
+__pycache__/               # Bộ nhớ đệm Python / Python cache
+*.py[cod]                  # File Python đã biên dịch / Compiled Python files
+.venv/                     # Môi trường ảo / Virtual environment
+venv/                      # Môi trường ảo / Virtual environment
+
+# ==============================
+# EDITOR AND OS / TRÌNH SOẠN THẢO VÀ HỆ ĐIỀU HÀNH
+# ==============================
+.vscode/                   # Cấu hình VS Code cục bộ / Local VS Code settings
+.DS_Store                  # Metadata của macOS / macOS metadata
+Thumbs.db                  # Cache ảnh thu nhỏ Windows / Windows thumbnail cache
+
+# ==============================
+# TEMPORARY FILES / FILE TẠM
+# ==============================
+*.tmp                      # File tạm / Temporary files
+*.bak                      # File sao lưu / Backup files
