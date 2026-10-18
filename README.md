@@ -8,13 +8,13 @@ Hệ thống hỗ trợ giảng viên quản lý tài liệu học tập, sinh v
 
 ## 1. Giới thiệu | Overview
 
-**Tiếng Việt**
+### Tiếng Việt
 
 Kdocument kết hợp chức năng quản lý học tập với công nghệ Retrieval-Augmented Generation (RAG), giúp trợ lý ảo truy xuất nội dung liên quan từ tài liệu trước khi tạo câu trả lời.
 
 Mục tiêu là xây dựng một ứng dụng có cấu trúc rõ ràng, dễ bảo trì, phù hợp với phạm vi đồ án tốt nghiệp và có khả năng mở rộng trong tương lai.
 
-**English**
+### English
 
 Kdocument combines learning management capabilities with Retrieval-Augmented Generation (RAG), allowing the AI assistant to retrieve relevant content from learning documents before generating answers.
 
@@ -46,16 +46,19 @@ The project aims to deliver a maintainable, well-structured application suitable
 ## 4. Phạm vi chức năng | Planned Features
 
 ### Quản lý hệ thống
+
 - Đăng nhập, đăng xuất và phân quyền.
 - Quản lý người dùng.
 - Quản lý môn học và phân công giảng viên.
 
 ### Quản lý tài liệu
+
 - Tải lên, xem và quản lý tài liệu môn học.
 - Xử lý nội dung và lập chỉ mục phục vụ truy xuất.
 - Kiểm soát quyền truy cập tài liệu.
 
 ### Trợ lý ảo AI
+
 - Tiếp nhận câu hỏi bằng ngôn ngữ tự nhiên.
 - Truy xuất các đoạn nội dung liên quan từ tài liệu.
 - Sinh câu trả lời dựa trên nội dung truy xuất.
