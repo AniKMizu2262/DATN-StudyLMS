@@ -144,3 +144,68 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP
+ CONSTRAINT fk_chat_sessions_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_chat_sessions_subject
+        FOREIGN KEY (subject_id)
+        REFERENCES subjects(subject_id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+
+    INDEX idx_chat_sessions_user_updated (user_id, updated_at)
+) ENGINE = InnoDB;
+
+
+-- =========================================================
+-- 7. CHAT_MESSAGES: Tin nhan trong phien hoi thoai
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    message_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    session_id INT UNSIGNED NOT NULL,
+    sender_type ENUM('USER', 'ASSISTANT') NOT NULL,
+    content MEDIUMTEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_chat_messages_session
+        FOREIGN KEY (session_id)
+        REFERENCES chat_sessions(session_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    INDEX idx_chat_messages_session_time (session_id, created_at)
+) ENGINE = InnoDB;
+
+
+-- =========================================================
+-- 8. CITATIONS: Nguon tai lieu duoc trich dan
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS citations (
+    citation_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    message_id INT UNSIGNED NOT NULL,
+    chunk_id INT UNSIGNED NOT NULL,
+    similarity_score DECIMAL(8,6) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_citation_message_chunk
+        UNIQUE (message_id, chunk_id),
+
+    CONSTRAINT fk_citations_chunk
+        FOREIGN KEY (chunk_id)
+        REFERENCES document_chunks(chunk_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_citations_message
+        FOREIGN KEY (message_id)
+        REFERENCES chat_messages(message_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    INDEX idx_citations_chunk (chunk_id)
+) ENGINE = InnoDB;
