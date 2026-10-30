@@ -186,90 +186,141 @@ CREATE TABLE IF NOT EXISTS subject_teachers (
 -- 4. DOCUMENTS - THÔNG TIN TÀI LIỆU
 -- ============================================================
 -- Chức năng:
---   Quản lý thông tin các tài liệu được đưa vào hệ thống.
+--   Quản lý thông tin các tài liệu được tải lên và sử dụng
+--   trong hệ thống Kdocument.
+--
+-- Lưu trữ:
+--   File PDF thực tế được lưu bên ngoài cơ sở dữ liệu.
+--   file_key dùng để định danh tệp trong hệ thống lưu trữ;
+--   backend chịu trách nhiệm quản lý việc lưu trữ và truy xuất.
+--
+-- Trạng thái xử lý tài liệu:
+--   PENDING: Chờ xử lý.
+--   PROCESSING: Đang trích xuất nội dung.
+--   READY: Đã xử lý xong, sẵn sàng phục vụ tra cứu.
+--   FAILED: Xử lý thất bại.
+--
+-- Phân loại tài liệu:
+--   LECTURE: Tài liệu bài giảng.
+--   REFERENCE: Tài liệu tham khảo.
+--   QUESTION_BANK: Ngân hàng câu hỏi.
+--   EXAM: Tài liệu đề thi.
+--   OTHER: Các loại tài liệu khác.
+--
+-- Nguồn tài liệu:
+--   OFFICIAL: Tài liệu chính thức.
+--   SUPPLEMENTARY: Tài liệu bổ trợ.
+--
+-- Trạng thái kiểm duyệt:
+--   PENDING: Chờ kiểm duyệt.
+--   APPROVED: Đã được chấp thuận.
+--   REJECTED: Bị từ chối.
 --
 -- Lưu ý:
---   File PDF thực tế nằm ngoài database.
---   file_key là khóa/đường dẫn định danh file trong hệ thống
---   lưu trữ; backend chịu trách nhiệm quản lý file đó.
---
--- Trạng thái xử lý:
---   PENDING: chờ xử lý.
---   PROCESSING: đang trích xuất nội dung.
---   READY: đã xử lý xong và sẵn sàng sử dụng.
---   FAILED: xử lý thất bại.
+--   Trạng thái xử lý và trạng thái kiểm duyệt là hai quy trình
+--   độc lập. Chỉ những tài liệu đáp ứng điều kiện kiểm duyệt
+--   và xử lý mới được sử dụng làm nguồn hỏi đáp theo quy định.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS documents (
-    -- Khóa chính, tự tăng; định danh tài liệu.
+    -- Khóa chính định danh tài liệu.
     document_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 
-    -- Môn học của tài liệu.
-    -- NULL nghĩa là tài liệu chưa gắn với môn học cụ thể.
+    -- Môn học liên kết với tài liệu.
+    -- NULL: tài liệu dùng chung, không thuộc riêng một môn học.
     subject_id INT UNSIGNED NULL,
 
-    -- Tài khoản tải tài liệu lên hệ thống.
+    -- Người tải tài liệu lên hệ thống.
     uploaded_by INT UNSIGNED NOT NULL,
 
     -- Tên hiển thị của tài liệu.
     title VARCHAR(255) NOT NULL,
 
-    -- Khóa hoặc đường dẫn định danh file trong nơi lưu trữ.
-    -- UNIQUE tránh hai tài liệu dùng cùng một file_key.
+    -- Khóa định danh tệp trong hệ thống lưu trữ.
+    -- UNIQUE bảo đảm mỗi tệp có một khóa riêng.
     file_key VARCHAR(500) NOT NULL UNIQUE,
 
-    -- Loại file; mặc định là PDF.
+    -- Định dạng tệp, mặc định là PDF.
     file_type VARCHAR(50) NOT NULL DEFAULT 'application/pdf',
 
-    -- Kích thước file tính bằng byte.
-    -- BIGINT hỗ trợ file có kích thước lớn.
+    -- Dung lượng tệp, tính bằng byte.
     file_size BIGINT UNSIGNED NOT NULL,
 
-    -- Phạm vi hiển thị theo thiết kế hiện tại.
-    -- PUBLIC: tài liệu thuộc phạm vi công khai của hệ thống.
-    -- PRIVATE: tài liệu thuộc phạm vi riêng tư.
-    -- Backend phải kiểm tra quyền truy cập khi đọc tài liệu.
+    -- Phạm vi hiển thị của tài liệu.
+    -- PUBLIC: thuộc phạm vi công khai của hệ thống.
+    -- PRIVATE: chỉ được truy cập theo quyền được cấp.
     visibility ENUM('PUBLIC', 'PRIVATE')
         NOT NULL DEFAULT 'PUBLIC',
 
-    -- Trạng thái xử lý tài liệu và nội dung trích xuất.
+    -- Trạng thái xử lý tệp và trích xuất nội dung.
     status ENUM('PENDING', 'PROCESSING', 'READY', 'FAILED')
         NOT NULL DEFAULT 'PENDING',
 
-    -- Thời điểm tạo bản ghi tài liệu.
+    -- Thời điểm tạo và cập nhật bản ghi.
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    -- Thời điểm cập nhật thông tin tài liệu gần nhất.
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
 
-    -- Liên kết đến môn học.
-    -- ON DELETE RESTRICT: không cho xóa môn học khi vẫn còn
-    -- tài liệu tham chiếu đến môn học đó.
+    -- Phân loại mục đích sử dụng của tài liệu.
+    document_type ENUM(
+        'LECTURE',
+        'REFERENCE',
+        'QUESTION_BANK',
+        'EXAM',
+        'OTHER'
+    ) NOT NULL DEFAULT 'OTHER',
+
+    -- Phân biệt tài liệu chính thức và tài liệu bổ trợ.
+    source_type ENUM('OFFICIAL', 'SUPPLEMENTARY')
+        NOT NULL DEFAULT 'SUPPLEMENTARY',
+
+    -- Trạng thái kiểm duyệt, độc lập với trạng thái xử lý tệp.
+    review_status ENUM('PENDING', 'APPROVED', 'REJECTED')
+        NOT NULL DEFAULT 'PENDING',
+
+    -- Người thực hiện kiểm duyệt tài liệu.
+    -- NULL khi tài liệu chưa được kiểm duyệt.
+    reviewed_by INT UNSIGNED DEFAULT NULL,
+
+    -- Thời điểm hoàn tất kiểm duyệt.
+    reviewed_at DATETIME DEFAULT NULL,
+
+    -- Lý do từ chối tài liệu (nếu có).
+    rejection_reason TEXT DEFAULT NULL,
+
+    -- Liên kết tài liệu với môn học.
+    -- Không cho xóa môn học khi vẫn còn tài liệu tham chiếu.
     CONSTRAINT fk_documents_subject
         FOREIGN KEY (subject_id)
         REFERENCES subjects(subject_id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
 
-    -- Liên kết đến tài khoản người tải lên.
-    -- ON DELETE RESTRICT: không cho xóa tài khoản khi vẫn còn
-    -- tài liệu do tài khoản đó tải lên.
+    -- Liên kết tài liệu với tài khoản người tải lên.
+    -- Không cho xóa tài khoản khi vẫn còn tài liệu do tài khoản đó tải lên.
     CONSTRAINT fk_documents_uploader
         FOREIGN KEY (uploaded_by)
         REFERENCES users(user_id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
 
-    -- Tăng tốc truy vấn tài liệu theo môn học.
+    -- Liên kết tài liệu với người kiểm duyệt.
+    -- Khi tài khoản người kiểm duyệt bị xóa, trường này chuyển thành NULL.
+    CONSTRAINT fk_documents_reviewer
+        FOREIGN KEY (reviewed_by)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+
+    -- Các chỉ mục hỗ trợ truy vấn và lọc tài liệu.
     INDEX idx_documents_subject (subject_id),
-
-    -- Tăng tốc truy vấn tài liệu theo người tải lên.
     INDEX idx_documents_uploader (uploaded_by),
-
-    -- Hỗ trợ lọc tài liệu theo phạm vi hiển thị và trạng thái.
-    INDEX idx_documents_visibility_status (visibility, status)
-) ENGINE = InnoDB;
+    INDEX idx_documents_visibility_status (visibility, status),
+    INDEX idx_documents_review_status (review_status),
+    INDEX idx_documents_reviewed_by (reviewed_by)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci;
 
 
 -- ============================================================
