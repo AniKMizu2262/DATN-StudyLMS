@@ -1,18 +1,18 @@
-
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
 const pool = require("./config/database");
+const subjectRoutes = require("./routes/subject.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware xử lý request
 app.use(cors());
 app.use(express.json());
 
-// Kiem tra server
+// Kiểm tra server
 app.get("/api/health", (req, res) => {
     res.json({
         success: true,
@@ -20,7 +20,7 @@ app.get("/api/health", (req, res) => {
     });
 });
 
-// Kiem tra ket noi MySQL
+// Kiểm tra kết nối MySQL
 app.get("/api/health/db", async (req, res) => {
     try {
         const [rows] = await pool.query(
@@ -42,7 +42,10 @@ app.get("/api/health/db", async (req, res) => {
     }
 });
 
-// Start server
+// Nhóm API liên quan đến môn học
+app.use("/api/subjects", subjectRoutes);
+
+// Khởi chạy server
 app.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
 });
