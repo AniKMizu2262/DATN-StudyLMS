@@ -2,9 +2,12 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+// Import cấu hình và các nhóm API
 const pool = require("./config/database");
 const subjectRoutes = require("./routes/subject.routes");
+const authRoutes = require("./routes/auth.routes");
 
+// Khởi tạo ứng dụng Express
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -12,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Kiểm tra server
+// Kiểm tra trạng thái server
 app.get("/api/health", (req, res) => {
     res.json({
         success: true,
@@ -41,6 +44,9 @@ app.get("/api/health/db", async (req, res) => {
         });
     }
 });
+
+// Nhóm API xác thực
+app.use("/api/auth", authRoutes);
 
 // Nhóm API liên quan đến môn học
 app.use("/api/subjects", subjectRoutes);
