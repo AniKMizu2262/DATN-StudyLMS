@@ -1,11 +1,14 @@
+
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
 // Import cấu hình và các nhóm API
 const pool = require("./config/database");
-const subjectRoutes = require("./routes/subject.routes");
+
 const authRoutes = require("./routes/auth.routes");
+const subjectRoutes = require("./routes/subject.routes");
+const documentRoutes = require("./routes/document.routes");
 
 // Khởi tạo ứng dụng Express
 const app = express();
@@ -17,7 +20,7 @@ app.use(express.json());
 
 // Kiểm tra trạng thái server
 app.get("/api/health", (req, res) => {
-    res.json({
+    return res.status(200).json({
         success: true,
         message: "Kdocument API is running"
     });
@@ -30,26 +33,26 @@ app.get("/api/health/db", async (req, res) => {
             "SELECT DATABASE() AS database_name, 1 AS connection_test"
         );
 
-        res.json({
+        return res.status(200).json({
             success: true,
             message: "MySQL connection successful",
             database: rows[0].database_name
         });
+
     } catch (error) {
         console.error("MySQL connection error:", error.message);
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "MySQL connection failed"
         });
     }
 });
 
-// Nhóm API xác thực
+// Đăng ký các nhóm API
 app.use("/api/auth", authRoutes);
-
-// Nhóm API liên quan đến môn học
 app.use("/api/subjects", subjectRoutes);
+app.use("/api/documents", documentRoutes);
 
 // Khởi chạy server
 app.listen(PORT, () => {
