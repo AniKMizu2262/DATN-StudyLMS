@@ -1,4 +1,3 @@
-
 const express = require("express");
 const router = express.Router();
 
@@ -9,16 +8,20 @@ const authorizeRoles = require("../middleware/role.middleware");
 // Import các controller tài liệu
 const {
     getPendingDocuments,
+    getPublicDocuments,
     approveDocument,
     rejectDocument
 } = require("../controllers/document.controller");
 
-// ======================================================
-// 1. LẤY DANH SÁCH TÀI LIỆU CHỜ DUYỆT
-// GET /api/documents/pending
-// ADMIN, TEACHER
-// ======================================================
+// Lấy danh sách tài liệu công khai dành cho sinh viên
+router.get(
+    "/public",
+    verifyToken,
+    authorizeRoles("STUDENT"),
+    getPublicDocuments
+);
 
+// Lấy danh sách tài liệu chờ duyệt
 router.get(
     "/pending",
     verifyToken,
@@ -26,12 +29,7 @@ router.get(
     getPendingDocuments
 );
 
-// ======================================================
-// 2. DUYỆT TÀI LIỆU
-// PATCH /api/documents/:id/approve
-// ADMIN, TEACHER
-// ======================================================
-
+// Duyệt tài liệu
 router.patch(
     "/:id/approve",
     verifyToken,
@@ -39,21 +37,12 @@ router.patch(
     approveDocument
 );
 
-// ======================================================
-// 3. TỪ CHỐI TÀI LIỆU
-// PATCH /api/documents/:id/reject
-// ADMIN, TEACHER
-// ======================================================
-
+// Từ chối tài liệu
 router.patch(
     "/:id/reject",
     verifyToken,
     authorizeRoles("ADMIN", "TEACHER"),
     rejectDocument
 );
-
-// ======================================================
-// EXPORT ROUTER
-// ======================================================
 
 module.exports = router;

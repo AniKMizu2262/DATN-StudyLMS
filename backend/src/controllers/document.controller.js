@@ -29,11 +29,12 @@ const getPendingDocuments = async (req, res) => {
             LEFT JOIN users u
                 ON d.uploaded_by = u.user_id
             WHERE d.review_status = 'PENDING'
+              AND d.status = 'READY'
         `;
 
         const params = [];
 
-        // Giảng viên chỉ xem tài liệu thuộc môn được phân công
+        // Giảng viên chỉ xem tài liệu thuộc môn được phân công.
         if (req.user.role === "TEACHER") {
             sql += `
                 AND d.subject_id IN (
@@ -44,6 +45,11 @@ const getPendingDocuments = async (req, res) => {
             `;
 
             params.push(req.user.userId);
+        }
+
+        // ADMIN chỉ xem tài liệu dùng chung.
+        else if (req.user.role === "ADMIN") {
+            sql += " AND d.subject_id IS NULL";
         }
 
         sql += " ORDER BY d.created_at DESC";
@@ -66,7 +72,6 @@ const getPendingDocuments = async (req, res) => {
     }
 };
 
-
 // ======================================================
 // 2. KIỂM TRA QUYỀN XỬ LÝ TÀI LIỆU
 // Hàm hỗ trợ nội bộ, không phải API
@@ -74,17 +79,17 @@ const getPendingDocuments = async (req, res) => {
 
 const checkDocumentPermission = async (document, user) => {
 
-    // ADMIN được xử lý tất cả tài liệu
-    if (user.role === "ADMIN") {
-        return true;
+    // Tài liệu dùng chung chỉ ADMIN được xử lý.
+    if (document.subject_id === null) {
+        return user.role === "ADMIN";
     }
 
-    // TEACHER không được xử lý tài liệu dùng chung
-    if (user.role !== "TEACHER" || document.subject_id === null) {
+    // Tài liệu thuộc môn học chỉ TEACHER được phân công
+    // môn đó mới có quyền xử lý.
+    if (user.role !== "TEACHER") {
         return false;
     }
 
-    // Kiểm tra giảng viên có được phân công môn học không
     const [rows] = await pool.query(
         `SELECT subject_id
          FROM subject_teachers
@@ -96,7 +101,6 @@ const checkDocumentPermission = async (document, user) => {
     return rows.length > 0;
 };
 
-
 // ======================================================
 // 3. DUYỆT TÀI LIỆU
 // PATCH /api/documents/:id/approve
@@ -104,7 +108,7 @@ const checkDocumentPermission = async (document, user) => {
 
 const approveDocument = async (req, res) => {
     try {
-        // 3.1. Kiểm tra mã tài liệu
+        // 3.1. Kiểm tra mã tài liệu.
         const documentId = Number(req.params.id);
 
         if (!Number.isInteger(documentId) || documentId <= 0) {
@@ -114,7 +118,7 @@ const approveDocument = async (req, res) => {
             });
         }
 
-        // 3.2. Tìm tài liệu
+        // 3.2. Tìm tài liệu.
         const [rows] = await pool.query(
             `SELECT document_id, subject_id, status, review_status
              FROM documents
@@ -131,7 +135,7 @@ const approveDocument = async (req, res) => {
 
         const document = rows[0];
 
-        // 3.3. Kiểm tra quyền duyệt
+        // 3.3. Kiểm tra quyền duyệt.
         if (!(await checkDocumentPermission(document, req.user))) {
             return res.status(403).json({
                 success: false,
@@ -139,7 +143,7 @@ const approveDocument = async (req, res) => {
             });
         }
 
-        // 3.4. Kiểm tra trạng thái duyệt
+        // 3.4. Kiểm tra trạng thái xét duyệt.
         if (document.review_status !== "PENDING") {
             return res.status(409).json({
                 success: false,
@@ -147,7 +151,7 @@ const approveDocument = async (req, res) => {
             });
         }
 
-        // 3.5. Chỉ duyệt tài liệu đã xử lý thành công
+        // 3.5. Chỉ duyệt tài liệu đã xử lý thành công.
         if (document.status !== "READY") {
             return res.status(409).json({
                 success: false,
@@ -155,7 +159,7 @@ const approveDocument = async (req, res) => {
             });
         }
 
-        // 3.6. Cập nhật trạng thái duyệt
+        // 3.6. Cập nhật trạng thái duyệt.
         const [result] = await pool.query(
             `UPDATE documents
              SET review_status = 'APPROVED',
@@ -190,7 +194,6 @@ const approveDocument = async (req, res) => {
     }
 };
 
-
 // ======================================================
 // 4. TỪ CHỐI TÀI LIỆU
 // PATCH /api/documents/:id/reject
@@ -198,7 +201,7 @@ const approveDocument = async (req, res) => {
 
 const rejectDocument = async (req, res) => {
     try {
-        // 4.1. Kiểm tra mã tài liệu và lý do từ chối
+        // 4.1. Kiểm tra mã tài liệu và lý do từ chối.
         const documentId = Number(req.params.id);
         const { rejection_reason } = req.body;
 
@@ -219,9 +222,9 @@ const rejectDocument = async (req, res) => {
             });
         }
 
-        // 4.2. Tìm tài liệu
+        // 4.2. Tìm tài liệu.
         const [rows] = await pool.query(
-            `SELECT document_id, subject_id, review_status
+            `SELECT document_id, subject_id, status, review_status
              FROM documents
              WHERE document_id = ?`,
             [documentId]
@@ -236,7 +239,7 @@ const rejectDocument = async (req, res) => {
 
         const document = rows[0];
 
-        // 4.3. Kiểm tra quyền từ chối
+        // 4.3. Kiểm tra quyền từ chối.
         if (!(await checkDocumentPermission(document, req.user))) {
             return res.status(403).json({
                 success: false,
@@ -244,7 +247,7 @@ const rejectDocument = async (req, res) => {
             });
         }
 
-        // 4.4. Kiểm tra trạng thái duyệt
+        // 4.4. Kiểm tra trạng thái xét duyệt.
         if (document.review_status !== "PENDING") {
             return res.status(409).json({
                 success: false,
@@ -252,7 +255,15 @@ const rejectDocument = async (req, res) => {
             });
         }
 
-        // 4.5. Cập nhật trạng thái từ chối
+        // 4.5. Chỉ từ chối tài liệu đã xử lý thành công.
+        if (document.status !== "READY") {
+            return res.status(409).json({
+                success: false,
+                message: "Chỉ có thể từ chối tài liệu đã xử lý thành công"
+            });
+        }
+
+        // 4.6. Cập nhật trạng thái từ chối.
         const [result] = await pool.query(
             `UPDATE documents
              SET review_status = 'REJECTED',
@@ -260,7 +271,8 @@ const rejectDocument = async (req, res) => {
                  reviewed_at = CURRENT_TIMESTAMP,
                  rejection_reason = ?
              WHERE document_id = ?
-               AND review_status = 'PENDING'`,
+               AND review_status = 'PENDING'
+               AND status = 'READY'`,
             [
                 req.user.userId,
                 rejection_reason.trim(),
@@ -290,13 +302,61 @@ const rejectDocument = async (req, res) => {
     }
 };
 
+// ======================================================
+// 5. LẤY DANH SÁCH TÀI LIỆU CÔNG KHAI
+// GET /api/documents/public
+// ======================================================
+
+const getPublicDocuments = async (req, res) => {
+    try {
+        const sql = `
+            SELECT
+                d.document_id,
+                d.subject_id,
+                s.subject_code,
+                s.subject_name,
+                d.title,
+                d.file_type,
+                d.file_size,
+                d.document_type,
+                d.source_type,
+                d.created_at
+            FROM documents d
+            LEFT JOIN subjects s
+                ON d.subject_id = s.subject_id
+            WHERE d.visibility = 'PUBLIC'
+              AND d.status = 'READY'
+              AND d.review_status = 'APPROVED'
+            ORDER BY d.created_at DESC
+        `;
+
+        const [rows] = await pool.query(sql);
+
+        return res.status(200).json({
+            success: true,
+            message: "Lấy danh sách tài liệu công khai thành công",
+            data: rows
+        });
+
+    } catch (error) {
+        console.error("Get public documents error:", error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: "Không thể lấy danh sách tài liệu công khai"
+        });
+    }
+};
+
 
 // ======================================================
-// 5. EXPORT CÁC CONTROLLER
+// 6. XUẤT CÁC CONTROLLER
+// Cho phép file routes sử dụng các hàm xử lý tài liệu.
 // ======================================================
 
 module.exports = {
     getPendingDocuments,
+    getPublicDocuments,
     approveDocument,
     rejectDocument
 };
