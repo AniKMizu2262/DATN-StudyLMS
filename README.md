@@ -1,26 +1,18 @@
-# Kdocument — Learning Management System with AI Assistant
+# Kdocument
 
 **Hệ thống quản lý học tập tích hợp trợ lý ảo hỏi đáp theo tài liệu môn học**
 
-Kdocument là đồ án tốt nghiệp hướng đến việc xây dựng một hệ thống quản lý học tập (Learning Management System — LMS), tích hợp trợ lý ảo AI có khả năng trả lời câu hỏi dựa trên tài liệu môn học được cung cấp.
+Kdocument là đồ án tốt nghiệp hướng đến việc xây dựng một hệ thống quản lý học tập (LMS), tích hợp trợ lý ảo AI có khả năng trả lời câu hỏi dựa trên tài liệu môn học được cung cấp.
 
-Hệ thống hỗ trợ giảng viên quản lý tài liệu học tập, sinh viên tra cứu kiến thức và kiểm chứng câu trả lời thông qua nguồn tài liệu tham khảo.
+Hệ thống hỗ trợ giảng viên quản lý tài liệu học tập, sinh viên tra cứu kiến thức và kiểm chứng câu trả lời thông qua các nguồn tài liệu tham khảo.
 
-## 1. Giới thiệu | Overview
-
-### Tiếng Việt
+## 1. Giới thiệu
 
 Kdocument kết hợp chức năng quản lý học tập với công nghệ Retrieval-Augmented Generation (RAG), giúp trợ lý ảo truy xuất nội dung liên quan từ tài liệu trước khi tạo câu trả lời.
 
 Mục tiêu là xây dựng một ứng dụng có cấu trúc rõ ràng, dễ bảo trì, phù hợp với phạm vi đồ án tốt nghiệp và có khả năng mở rộng trong tương lai.
 
-### English
-
-Kdocument combines learning management capabilities with Retrieval-Augmented Generation (RAG), allowing the AI assistant to retrieve relevant content from learning documents before generating answers.
-
-The project aims to deliver a maintainable, well-structured application suitable for a graduation project, with room for future improvements.
-
-## 2. Mục tiêu | Objectives
+## 2. Mục tiêu
 
 - Quản lý tài khoản và phân quyền người dùng.
 - Quản lý môn học và tài liệu học tập.
@@ -30,34 +22,34 @@ The project aims to deliver a maintainable, well-structured application suitable
 - Lưu trữ và xem lại lịch sử hội thoại.
 - Xây dựng hệ thống dễ bảo trì, dễ kiểm thử và có thể triển khai trực tuyến.
 
-## 3. Công nghệ dự kiến | Planned Technology Stack
+## 3. Công nghệ sử dụng
 
-| Thành phần | Công nghệ dự kiến |
+| Thành phần | Công nghệ |
 |---|---|
-| Frontend | React, TypeScript |
-| Backend | Node.js, Express |
-| Database | MySQL |
-| AI Question Answering | Large Language Model (LLM) API |
-| RAG Pipeline | Document Processing, Embeddings, Vector Retrieval |
-| Version Control | Git, GitHub |
+| Giao diện người dùng | React, TypeScript |
+| Máy chủ và xử lý nghiệp vụ | Node.js, Express |
+| Cơ sở dữ liệu | MySQL |
+| Mô hình AI | API mô hình ngôn ngữ lớn (LLM) |
+| Quy trình RAG | Xử lý tài liệu, tạo Embeddings, truy xuất vector |
+| Quản lý mã nguồn | Git, GitHub |
 
 **Lưu ý:** Công nghệ trên là định hướng ban đầu và có thể được điều chỉnh trong quá trình nghiên cứu, thiết kế và triển khai.
 
-## 4. Phạm vi chức năng | Planned Features
+## 4. Phạm vi chức năng
 
-### Quản lý hệ thống
+### 4.1. Quản lý hệ thống
 
 - Đăng nhập, đăng xuất và phân quyền.
 - Quản lý người dùng.
 - Quản lý môn học và phân công giảng viên.
 
-### Quản lý tài liệu
+### 4.2. Quản lý tài liệu
 
 - Tải lên, xem và quản lý tài liệu môn học.
 - Xử lý nội dung và lập chỉ mục phục vụ truy xuất.
 - Kiểm soát quyền truy cập tài liệu.
 
-### Trợ lý ảo AI
+### 4.3. Trợ lý ảo AI
 
 - Tiếp nhận câu hỏi bằng ngôn ngữ tự nhiên.
 - Truy xuất các đoạn nội dung liên quan từ tài liệu.
@@ -65,26 +57,26 @@ The project aims to deliver a maintainable, well-structured application suitable
 - Hiển thị nguồn tham khảo cho câu trả lời.
 - Lưu trữ và xem lại lịch sử hội thoại.
 
-## 5. Vai trò người dùng | User Roles
+## 5. Vai trò người dùng
 
-- **Admin:** Quản lý người dùng, môn học và các thiết lập quản trị.
-- **Giảng viên (Teacher):** Quản lý tài liệu thuộc môn học được phân công.
+- **Quản trị viên (Admin):** Quản lý người dùng, môn học và các thiết lập quản trị hệ thống.
+- **Giảng viên (Teacher):** Quản lý tài liệu thuộc các môn học được phân công.
 - **Sinh viên (Student):** Tra cứu tài liệu và sử dụng trợ lý ảo hỏi đáp.
 
-## 6. Trạng thái dự án | Project Status
+## 6. Trạng thái dự án
 
-**Giai đoạn hiện tại:** Phân tích yêu cầu và thiết kế hệ thống.
+**Giai đoạn hiện tại:** Phát triển các chức năng quản lý tài liệu và hoàn thiện hệ thống.
 
-Các chức năng, kiến trúc và công nghệ sẽ được hoàn thiện dần theo kế hoạch phát triển của đồ án.
+Các chức năng, kiến trúc và công nghệ sẽ tiếp tục được hoàn thiện theo kế hoạch phát triển của đồ án.
 
-## 7. Cấu trúc dự án | Project Structure
+## 7. Cấu trúc dự án
 
-Cấu trúc thư mục sẽ được cập nhật khi quá trình triển khai bắt đầu.
+Cấu trúc thư mục sẽ được cập nhật theo quá trình triển khai.
 
-## 8. Tác giả | Author
+## 8. Tác giả
 
-Đồ án tốt nghiệp (Graduation Project).
+Nguyễn Văn Khải - K23CNT2 .
 
-## 9. Giấy phép | License
+## 9. Giấy phép
 
 Giấy phép sử dụng và phân phối sẽ được xác định khi cần thiết.
