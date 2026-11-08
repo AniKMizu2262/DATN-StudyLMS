@@ -1,5 +1,6 @@
 
 const pool = require("../config/database");
+const fs = require("fs/promises");
 
 // ======================================================
 // 1. LẤY DANH SÁCH TÀI LIỆU CHỜ DUYỆT
@@ -349,14 +350,214 @@ const getPublicDocuments = async (req, res) => {
 };
 
 
+
 // ======================================================
-// 6. XUẤT CÁC CONTROLLER
-// Cho phép file routes sử dụng các hàm xử lý tài liệu.
+// 6. UPLOAD TÀI LIỆU
+// POST /api/documents/upload
 // ======================================================
+
+const uploadDocument = async (req, res) => {
+    // Hàm hỗ trợ xóa file nếu dữ liệu không hợp lệ
+    // hoặc quá trình lưu thông tin vào database thất bại.
+    const removeUploadedFile = async () => {
+        if (req.file?.path) {
+            await fs.unlink(req.file.path).catch(() => {});
+        }
+    };
+
+    try {
+        // 6.1. Kiểm tra file được gửi lên.
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "Vui lòng chọn file PDF để tải lên"
+            });
+        }
+
+        // 6.2. Lấy thông tin tài liệu từ request.
+        const {
+            title,
+            subject_id,
+            visibility = "PUBLIC",
+            document_type = "OTHER",
+            source_type = "SUPPLEMENTARY"
+        } = req.body;
+
+        // 6.3. Kiểm tra tiêu đề tài liệu.
+        if (
+            typeof title !== "string" ||
+            !title.trim() ||
+            title.trim().length > 255
+        ) {
+            await removeUploadedFile();
+
+            return res.status(400).json({
+                success: false,
+                message: "Tiêu đề không hợp lệ hoặc vượt quá 255 ký tự"
+            });
+        }
+
+        // 6.4. Kiểm tra mã môn học.
+        // Không truyền subject_id hoặc truyền chuỗi rỗng
+        // có nghĩa đây là tài liệu dùng chung.
+        const subjectId =
+            subject_id === undefined || subject_id === ""
+                ? null
+                : Number(subject_id);
+
+        if (
+            subjectId !== null &&
+            (!Number.isInteger(subjectId) || subjectId <= 0)
+        ) {
+            await removeUploadedFile();
+
+            return res.status(400).json({
+                success: false,
+                message: "Mã môn học không hợp lệ"
+            });
+        }
+
+        // 6.5. Kiểm tra quyền upload theo vai trò.
+        // ADMIN chỉ được upload tài liệu dùng chung.
+        // TEACHER chỉ được upload tài liệu thuộc môn được phân công.
+        if (req.user.role === "ADMIN") {
+            if (subjectId !== null) {
+                await removeUploadedFile();
+
+                return res.status(403).json({
+                    success: false,
+                    message: "ADMIN chỉ được upload tài liệu dùng chung"
+                });
+            }
+        } else if (req.user.role === "TEACHER") {
+            if (subjectId === null) {
+                await removeUploadedFile();
+
+                return res.status(403).json({
+                    success: false,
+                    message: "TEACHER không được upload tài liệu dùng chung"
+                });
+            }
+
+            // Kiểm tra giảng viên có được phân công phụ trách môn học không.
+            const [assignments] = await pool.query(
+                `SELECT subject_id
+                 FROM subject_teachers
+                 WHERE subject_id = ?
+                   AND teacher_id = ?`,
+                [subjectId, req.user.userId]
+            );
+
+            if (assignments.length === 0) {
+                await removeUploadedFile();
+
+                return res.status(403).json({
+                    success: false,
+                    message: "Bạn không được phân công phụ trách môn học này"
+                });
+            }
+        } else {
+            await removeUploadedFile();
+
+            return res.status(403).json({
+                success: false,
+                message: "Bạn không có quyền upload tài liệu"
+            });
+        }
+
+        // 6.6. Kiểm tra các giá trị phân loại tài liệu.
+        const validVisibility = ["PUBLIC", "PRIVATE"];
+
+        const validDocumentTypes = [
+            "LECTURE",
+            "REFERENCE",
+            "QUESTION_BANK",
+            "EXAM",
+            "OTHER"
+        ];
+
+        const validSourceTypes = [
+            "OFFICIAL",
+            "SUPPLEMENTARY"
+        ];
+
+        if (
+            !validVisibility.includes(visibility) ||
+            !validDocumentTypes.includes(document_type) ||
+            !validSourceTypes.includes(source_type)
+        ) {
+            await removeUploadedFile();
+
+            return res.status(400).json({
+                success: false,
+                message: "Thông tin phân loại tài liệu không hợp lệ"
+            });
+        }
+
+        // 6.7. Lưu thông tin tài liệu vào database.
+        // file_key sử dụng tên file do máy chủ tự tạo,
+        // không sử dụng trực tiếp tên file gốc của người dùng.
+        const [result] = await pool.query(
+            `INSERT INTO documents (
+                subject_id,
+                uploaded_by,
+                title,
+                file_key,
+                file_type,
+                file_size,
+                visibility,
+                document_type,
+                source_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                subjectId,
+                req.user.userId,
+                title.trim(),
+                req.file.filename,
+                req.file.mimetype,
+                req.file.size,
+                visibility,
+                document_type,
+                source_type
+            ]
+        );
+
+        // 6.8. Trả kết quả sau khi upload thành công.
+        return res.status(201).json({
+            success: true,
+            message: "Upload tài liệu thành công",
+            data: {
+                document_id: result.insertId,
+                title: title.trim(),
+                subject_id: subjectId,
+                file_type: req.file.mimetype,
+                file_size: req.file.size,
+                visibility,
+                document_type,
+                source_type,
+                status: "PENDING",
+                review_status: "PENDING"
+            }
+        });
+
+    } catch (error) {
+        // Nếu lưu database thất bại thì xóa file đã upload
+        // để tránh tạo file rác trên máy chủ.
+        await removeUploadedFile();
+
+        console.error("Upload document error:", error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: "Không thể upload tài liệu"
+        });
+    }
+};
 
 module.exports = {
     getPendingDocuments,
     getPublicDocuments,
     approveDocument,
-    rejectDocument
+    rejectDocument,
+    uploadDocument
 };

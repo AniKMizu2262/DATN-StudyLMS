@@ -1,2 +1,7 @@
 node_modules/
 .env
+
+# Uploaded documents
+uploads/
+# Local test credentials
+Kdocument_Test_Accounts.txt
