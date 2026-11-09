@@ -7,30 +7,30 @@ const router = express.Router();
 const verifyToken = require("../middleware/auth.middleware");
 const authorizeRoles = require("../middleware/role.middleware");
 
-// Cấu hình Multer để tiếp nhận file upload
+// Cấu hình tải tài liệu lên máy chủ
 const upload = require("../config/upload");
 
-// Import các controller tài liệu
+// Các hàm xử lý tài liệu
 const {
     getPendingDocuments,
     getPublicDocuments,
     approveDocument,
     rejectDocument,
-    uploadDocument
+    uploadDocument,
+    getDocumentDetails,
+    downloadDocument
 } = require("../controllers/document.controller");
 
 // ======================================================
 // MIDDLEWARE XỬ LÝ LỖI UPLOAD
 // ======================================================
 
-// Tiếp nhận file và xử lý lỗi phát sinh từ Multer
 const handleDocumentUpload = (req, res, next) => {
     upload.single("file")(req, res, (error) => {
         if (error) {
-            console.log("Multer error code:", error.code);
-            console.log("Multer error field:", error.field);
-            console.log("Multer error stack:", error.stack);
-            // Xử lý lỗi khi file vượt quá dung lượng cho phép
+            console.error("Lỗi tải tài liệu:", error.message);
+
+            // Kiểm tra dung lượng tối đa
             if (
                 error instanceof multer.MulterError &&
                 error.code === "LIMIT_FILE_SIZE"
@@ -41,25 +41,22 @@ const handleDocumentUpload = (req, res, next) => {
                 });
             }
 
-            // Xử lý lỗi định dạng file hoặc lỗi upload khác
+            // Các lỗi upload khác
             return res.status(400).json({
                 success: false,
-                message: error.message || "Không thể upload file"
+                message: error.message || "Không thể tải tài liệu lên"
             });
         }
 
-        // Không có lỗi thì chuyển sang controller
         next();
     });
 };
 
 // ======================================================
-// 1. UPLOAD TÀI LIỆU
+// 1. TẢI TÀI LIỆU LÊN
 // POST /api/documents/upload
 // ======================================================
 
-// Chỉ ADMIN và TEACHER được phép upload tài liệu
-// Xác thực và phân quyền trước khi tiếp nhận file
 router.post(
     "/upload",
     verifyToken,
@@ -69,7 +66,7 @@ router.post(
 );
 
 // ======================================================
-// 2. LẤY DANH SÁCH TÀI LIỆU CÔNG KHAI
+// 2. DANH SÁCH TÀI LIỆU CÔNG KHAI
 // GET /api/documents/public
 // ======================================================
 
@@ -81,7 +78,7 @@ router.get(
 );
 
 // ======================================================
-// 3. LẤY DANH SÁCH TÀI LIỆU CHỜ DUYỆT
+// 3. DANH SÁCH TÀI LIỆU CHỜ DUYỆT
 // GET /api/documents/pending
 // ======================================================
 
@@ -116,4 +113,27 @@ router.patch(
     rejectDocument
 );
 
+// ======================================================
+// 6. TẢI FILE PDF
+// GET /api/documents/:id/download
+// ======================================================
+
+router.get(
+    "/:id/download",
+    verifyToken,
+    downloadDocument
+);
+
+// ======================================================
+// 7. XEM CHI TIẾT TÀI LIỆU
+// GET /api/documents/:id
+// ======================================================
+
+router.get(
+    "/:id",
+    verifyToken,
+    getDocumentDetails
+);
+
+// Xuất router
 module.exports = router;
