@@ -18,7 +18,10 @@ const {
     rejectDocument,
     uploadDocument,
     getDocumentDetails,
-    downloadDocument
+    downloadDocument,
+    updateDocument,
+    deleteDocument,
+    restoreDocument 
 } = require("../controllers/document.controller");
 
 // ======================================================
@@ -137,3 +140,35 @@ router.get(
 
 // Xuất router
 module.exports = router;
+
+// ======================================================
+// 8. CẬP NHẬT THÔNG TIN TÀI LIỆU
+// PATCH /api/documents/:id
+// ======================================================
+
+router.patch(
+    "/:id",
+    verifyToken,
+    authorizeRoles("ADMIN", "TEACHER"),
+    updateDocument
+);
+
+// ======================================================
+// DAY09 - XÓA MỀM VÀ KHÔI PHỤC
+// ======================================================
+
+// Xóa mềm tài liệu
+router.delete(
+    "/:id",
+    verifyToken,
+    authorizeRoles("ADMIN", "TEACHER"),
+    deleteDocument
+);
+
+// Khôi phục tài liệu
+router.patch(
+    "/:id/restore",
+    verifyToken,
+    authorizeRoles("ADMIN", "TEACHER"),
+    restoreDocument
+);
