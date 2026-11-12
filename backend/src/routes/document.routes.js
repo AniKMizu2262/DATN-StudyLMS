@@ -3,14 +3,18 @@ const express = require("express");
 const multer = require("multer");
 const router = express.Router();
 
-// Middleware xác thực và phân quyền
+// ======================================================
+// [A] IMPORT MIDDLEWARE VÀ CẤU HÌNH
+// ======================================================
+
+// Xác thực và phân quyền
 const verifyToken = require("../middleware/auth.middleware");
 const authorizeRoles = require("../middleware/role.middleware");
 
-// Cấu hình tải tài liệu lên máy chủ
+// Cấu hình tải file PDF
 const upload = require("../config/upload");
 
-// Các hàm xử lý tài liệu
+// Controller quản lý tài liệu - Day06 đến Day09
 const {
     getPendingDocuments,
     getPublicDocuments,
@@ -21,11 +25,16 @@ const {
     downloadDocument,
     updateDocument,
     deleteDocument,
-    restoreDocument 
+    restoreDocument
 } = require("../controllers/document.controller");
 
+// Controller tìm kiếm tài liệu - Day10
+const {
+    searchDocuments
+} = require("../controllers/documentSearch.controller");
+
 // ======================================================
-// MIDDLEWARE XỬ LÝ LỖI UPLOAD
+// [B] MIDDLEWARE XỬ LÝ LỖI UPLOAD
 // ======================================================
 
 const handleDocumentUpload = (req, res, next) => {
@@ -33,7 +42,7 @@ const handleDocumentUpload = (req, res, next) => {
         if (error) {
             console.error("Lỗi tải tài liệu:", error.message);
 
-            // Kiểm tra dung lượng tối đa
+            // File vượt quá dung lượng cho phép
             if (
                 error instanceof multer.MulterError &&
                 error.code === "LIMIT_FILE_SIZE"
@@ -56,9 +65,13 @@ const handleDocumentUpload = (req, res, next) => {
 };
 
 // ======================================================
-// 1. TẢI TÀI LIỆU LÊN
-// POST /api/documents/upload
+// [C] ROUTE CỐ ĐỊNH - ĐẶT TRƯỚC ROUTE CÓ :id
 // ======================================================
+
+// ------------------------------------------------------
+// [01] DAY07 - TẢI TÀI LIỆU LÊN
+// POST /api/documents/upload
+// ------------------------------------------------------
 
 router.post(
     "/upload",
@@ -68,10 +81,10 @@ router.post(
     uploadDocument
 );
 
-// ======================================================
-// 2. DANH SÁCH TÀI LIỆU CÔNG KHAI
+// ------------------------------------------------------
+// [02] DAY06 - DANH SÁCH TÀI LIỆU CÔNG KHAI
 // GET /api/documents/public
-// ======================================================
+// ------------------------------------------------------
 
 router.get(
     "/public",
@@ -80,10 +93,10 @@ router.get(
     getPublicDocuments
 );
 
-// ======================================================
-// 3. DANH SÁCH TÀI LIỆU CHỜ DUYỆT
+// ------------------------------------------------------
+// [03] DAY06 - DANH SÁCH TÀI LIỆU CHỜ DUYỆT
 // GET /api/documents/pending
-// ======================================================
+// ------------------------------------------------------
 
 router.get(
     "/pending",
@@ -92,10 +105,27 @@ router.get(
     getPendingDocuments
 );
 
+// ------------------------------------------------------
+// [04] DAY10 - TÌM KIẾM VÀ LỌC TÀI LIỆU
+// GET /api/documents/search
+// ------------------------------------------------------
+
+// Quan trọng: /search phải nằm trước GET /:id
+router.get(
+    "/search",
+    verifyToken,
+    authorizeRoles("ADMIN", "TEACHER", "STUDENT"),
+    searchDocuments
+);
+
 // ======================================================
-// 4. DUYỆT TÀI LIỆU
+// [D] ROUTE ĐỘNG - QUẢN LÝ THEO ID TÀI LIỆU
+// ======================================================
+
+// ------------------------------------------------------
+// [05] DAY06 - DUYỆT TÀI LIỆU
 // PATCH /api/documents/:id/approve
-// ======================================================
+// ------------------------------------------------------
 
 router.patch(
     "/:id/approve",
@@ -104,10 +134,10 @@ router.patch(
     approveDocument
 );
 
-// ======================================================
-// 5. TỪ CHỐI TÀI LIỆU
+// ------------------------------------------------------
+// [06] DAY06 - TỪ CHỐI TÀI LIỆU
 // PATCH /api/documents/:id/reject
-// ======================================================
+// ------------------------------------------------------
 
 router.patch(
     "/:id/reject",
@@ -116,10 +146,22 @@ router.patch(
     rejectDocument
 );
 
-// ======================================================
-// 6. TẢI FILE PDF
+// ------------------------------------------------------
+// [07] DAY09 - KHÔI PHỤC TÀI LIỆU ĐÃ XÓA MỀM
+// PATCH /api/documents/:id/restore
+// ------------------------------------------------------
+
+router.patch(
+    "/:id/restore",
+    verifyToken,
+    authorizeRoles("ADMIN", "TEACHER"),
+    restoreDocument
+);
+
+// ------------------------------------------------------
+// [08] DAY08 - TẢI FILE PDF
 // GET /api/documents/:id/download
-// ======================================================
+// ------------------------------------------------------
 
 router.get(
     "/:id/download",
@@ -127,10 +169,10 @@ router.get(
     downloadDocument
 );
 
-// ======================================================
-// 7. XEM CHI TIẾT TÀI LIỆU
+// ------------------------------------------------------
+// [09] DAY08 - XEM CHI TIẾT TÀI LIỆU
 // GET /api/documents/:id
-// ======================================================
+// ------------------------------------------------------
 
 router.get(
     "/:id",
@@ -138,13 +180,10 @@ router.get(
     getDocumentDetails
 );
 
-// Xuất router
-module.exports = router;
-
-// ======================================================
-// 8. CẬP NHẬT THÔNG TIN TÀI LIỆU
+// ------------------------------------------------------
+// [10] DAY09 - CẬP NHẬT THÔNG TIN TÀI LIỆU
 // PATCH /api/documents/:id
-// ======================================================
+// ------------------------------------------------------
 
 router.patch(
     "/:id",
@@ -153,11 +192,11 @@ router.patch(
     updateDocument
 );
 
-// ======================================================
-// DAY09 - XÓA MỀM VÀ KHÔI PHỤC
-// ======================================================
+// ------------------------------------------------------
+// [11] DAY09 - XÓA MỀM TÀI LIỆU
+// DELETE /api/documents/:id
+// ------------------------------------------------------
 
-// Xóa mềm tài liệu
 router.delete(
     "/:id",
     verifyToken,
@@ -165,10 +204,8 @@ router.delete(
     deleteDocument
 );
 
-// Khôi phục tài liệu
-router.patch(
-    "/:id/restore",
-    verifyToken,
-    authorizeRoles("ADMIN", "TEACHER"),
-    restoreDocument
-);
+// ======================================================
+// [E] XUẤT ROUTER - LUÔN ĐỂ CUỐI FILE
+// ======================================================
+
+module.exports = router;
