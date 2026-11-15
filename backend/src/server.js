@@ -9,6 +9,11 @@ const pool = require("./config/database");
 const authRoutes = require("./routes/auth.routes");
 const subjectRoutes = require("./routes/subject.routes");
 const documentRoutes = require("./routes/document.routes");
+// [DAY13] API hỏi đáp RAG
+const createRagRouter = require("./routes/rag.routes");
+
+// Middleware JWT hiện có của Kdocument
+const verifyToken = require("./middleware/auth.middleware");
 
 // Khởi tạo ứng dụng Express
 const app = express();
@@ -53,6 +58,8 @@ app.get("/api/health/db", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/documents", documentRoutes);
+// [DAY13] Đăng ký API RAG có xác thực JWT
+app.use("/api/rag", createRagRouter(verifyToken));
 
 // Khởi chạy server
 app.listen(PORT, () => {
