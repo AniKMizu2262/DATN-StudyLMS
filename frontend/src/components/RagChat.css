@@ -1,0 +1,269 @@
+
+/* ======================================================
+   KDOCUMENT - GIAO DIỆN CHAT AI DAY 14
+   ====================================================== */
+
+.rag-chat {
+    margin-top: 28px;
+    overflow: hidden;
+    border: 1px solid #e2e6f0;
+    border-radius: 18px;
+    background: #fff;
+    text-align: left;
+}
+
+.rag-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 25px;
+    border-bottom: 1px solid #e8ebf2;
+}
+
+.rag-kicker {
+    color: #7567d6;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 1.5px;
+}
+
+.rag-header h2 {
+    margin: 8px 0;
+    color: #17233c;
+    font-size: 25px;
+}
+
+.rag-header p {
+    margin: 0;
+    color: #758198;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.rag-tag {
+    padding: 7px 12px;
+    border-radius: 20px;
+    background: #eeebff;
+    color: #6254cb;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.rag-history {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-height: 240px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding: 22px;
+    background: #fafbfe;
+}
+
+.rag-empty {
+    margin: auto;
+    max-width: 350px;
+    text-align: center;
+}
+
+.rag-empty-icon {
+    color: #796de8;
+    font-size: 38px;
+}
+
+.rag-empty h3 {
+    color: #22314e;
+}
+
+.rag-empty p {
+    color: #7b879a;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.rag-conversation {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+}
+
+.rag-question,
+.rag-answer {
+    padding: 17px;
+    border-radius: 13px;
+    line-height: 1.7;
+}
+
+.rag-question {
+    align-self: flex-end;
+    max-width: 88%;
+    background: #eae7ff;
+    color: #352b76;
+}
+
+.rag-question p {
+    margin: 8px 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.rag-answer {
+    border: 1px solid #e4e8f1;
+    background: white;
+    color: #283650;
+}
+
+.rag-speaker {
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.rag-answer-text {
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.85;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.rag-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 15px;
+    border-top: 1px solid #e7eaf2;
+    font-size: 12px;
+}
+
+.rag-source {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    background: #f0f2ff;
+    color: #5549ad;
+}
+
+.rag-source small {
+    color: #78829a;
+}
+
+.rag-model,
+.rag-footnote {
+    color: #8791a4;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+}
+
+.rag-model {
+    margin: 14px 0 0;
+}
+
+.rag-loading {
+    color: #675acb;
+    font-size: 13px;
+}
+
+.rag-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 22px;
+    border-top: 1px solid #e8ebf2;
+}
+
+.rag-form label {
+    color: #263653;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.rag-document-field {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.rag-form input,
+.rag-form textarea {
+    border: 1px solid #dce1ed;
+    border-radius: 10px;
+    outline: none;
+    background: white;
+    color: #263653;
+    font-size: 14px;
+}
+
+.rag-form input {
+    width: 95px;
+    padding: 10px;
+}
+
+.rag-form textarea {
+    width: 100%;
+    padding: 13px;
+    resize: vertical;
+}
+
+.rag-form input:focus,
+.rag-form textarea:focus {
+    border-color: #8176ff;
+}
+
+.rag-form-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.rag-form-footer span {
+    color: #8993a5;
+    font-size: 12px;
+}
+
+.rag-form-footer button {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 9px;
+    background: #6658dd;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.rag-form-footer button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.rag-error {
+    padding: 12px;
+    border-radius: 9px;
+    background: #fff0f0;
+    color: #b52d2d;
+    font-size: 13px;
+}
+
+.rag-footnote {
+    margin: 0;
+    padding: 0 22px 20px;
+}
+
+@media (max-width: 600px) {
+    .rag-header,
+    .rag-form {
+        padding: 16px;
+    }
+
+    .rag-history {
+        padding: 14px;
+    }
+
+    .rag-question {
+        max-width: 100%;
+    }
+}
