@@ -1,15 +1,24 @@
 
 import { useState, type FormEvent } from "react";
+
 import { apiRequest } from "./services/api";
+
+import AppLayout, {
+    type AppPage
+} from "./components/layout/AppLayout";
+
+import RoleDashboard from "./pages/RoleDashboard";
 import RagChat from "./components/RagChat";
+
 import "./App.css";
 
 // ======================================================
-// KDOCUMENT - GIAO DIỆN ĐĂNG NHẬP
-// DAY 14 - REACT + TYPESCRIPT
+// KDOCUMENT - DAY 15
+// ĐĂNG NHẬP, PHIÊN JWT VÀ ĐIỀU HƯỚNG THEO VAI TRÒ
 // ======================================================
 
-// [01] Kiểu dữ liệu người dùng từ backend
+// [A] KHAI BÁO KIỂU DỮ LIỆU
+
 interface User {
     user_id: number;
     full_name: string;
@@ -17,7 +26,6 @@ interface User {
     role: string;
 }
 
-// [02] Cấu trúc phản hồi API đăng nhập
 interface LoginResponse {
     success: boolean;
     message: string;
@@ -27,7 +35,6 @@ interface LoginResponse {
     };
 }
 
-// [03] Thông tin phiên đăng nhập
 interface AuthSession {
     token: string;
     user: User;
@@ -35,64 +42,90 @@ interface AuthSession {
 
 const SESSION_KEY = "kdocument_session";
 
-const ROLE_NAMES: Record<string, string> = {
-    ADMIN: "Quản trị viên",
-    TEACHER: "Giảng viên",
-    STUDENT: "Sinh viên"
-};
+// ======================================================
+// [B] ĐỌC PHIÊN ĐĂNG NHẬP
+// ======================================================
 
-// [04] Khôi phục phiên đăng nhập khi tải lại trang
+// Phiên tạm phục vụ bản thử nghiệm frontend.
+// Backend vẫn kiểm tra chữ ký và thời hạn JWT.
 const loadSession = (): AuthSession | null => {
     try {
         const saved = sessionStorage.getItem(SESSION_KEY);
 
-        if (!saved) return null;
+        if (!saved) {
+            return null;
+        }
 
-        const session = JSON.parse(saved) as AuthSession;
+        const parsed: unknown = JSON.parse(saved);
 
         if (
-            typeof session?.token !== "string" ||
+            !parsed ||
+            typeof parsed !== "object" ||
+            !("token" in parsed) ||
+            !("user" in parsed)
+        ) {
+            return null;
+        }
+
+        const session = parsed as AuthSession;
+
+        if (
+            typeof session.token !== "string" ||
             !session.token ||
-            !session.user?.email
+            typeof session.user?.email !== "string" ||
+            typeof session.user?.role !== "string"
         ) {
             return null;
         }
 
         return session;
+
     } catch {
         return null;
     }
 };
 
 // ======================================================
-// [A] COMPONENT CHÍNH
+// [C] COMPONENT APP
 // ======================================================
 
 function App() {
+
+    // [01] Trạng thái đăng nhập
     const [session, setSession] = useState<AuthSession | null>(
         loadSession
     );
 
+    // [02] Điều hướng trong giao diện
+    const [activePage, setActivePage] = useState<AppPage>(
+        "dashboard"
+    );
+
+    // [03] Form đăng nhập
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
 
+    // [04] Trạng thái xử lý
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
     // ==================================================
-    // [B] ĐĂNG NHẬP QUA EXPRESS API
+    // [D] XỬ LÝ ĐĂNG NHẬP
     // ==================================================
 
-    const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    const handleLogin = async (
+        event: FormEvent<HTMLFormElement>
+    ) => {
         event.preventDefault();
 
         if (loading) return;
 
-        setError("");
         setLoading(true);
+        setError("");
 
         try {
+            // [01] Gửi email và mật khẩu đến Express
             const response = await apiRequest<LoginResponse>(
                 "/auth/login",
                 {
@@ -104,115 +137,121 @@ function App() {
                 }
             );
 
+            // [02] Kiểm tra dữ liệu trả về
             if (
                 !response.success ||
                 !response.data?.token ||
                 !response.data?.user
             ) {
-                throw new Error("Dữ liệu đăng nhập không hợp lệ");
+                throw new Error(
+                    "Phản hồi đăng nhập không hợp lệ"
+                );
             }
 
+            // [03] Tạo phiên đăng nhập
             const newSession: AuthSession = {
                 token: response.data.token,
                 user: response.data.user
             };
 
-            // Lưu phiên thử nghiệm trong tab trình duyệt
+            // [04] Lưu phiên trong tab hiện tại
             sessionStorage.setItem(
                 SESSION_KEY,
                 JSON.stringify(newSession)
             );
 
             setSession(newSession);
+
+            // [05] Sau đăng nhập luôn vào Dashboard
+            setActivePage("dashboard");
             setPassword("");
+            setShowPassword(false);
 
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Không thể đăng nhập. Vui lòng thử lại."
+                    : "Đăng nhập thất bại. Vui lòng thử lại."
             );
+
         } finally {
             setLoading(false);
         }
     };
 
     // ==================================================
-    // [C] ĐĂNG XUẤT
+    // [E] XỬ LÝ ĐĂNG XUẤT
     // ==================================================
 
     const handleLogout = () => {
         sessionStorage.removeItem(SESSION_KEY);
+
         setSession(null);
+        setActivePage("dashboard");
+
         setEmail("");
         setPassword("");
+        setShowPassword(false);
         setError("");
     };
 
     // ==================================================
-    // [D] GIAO DIỆN SAU KHI ĐĂNG NHẬP
+    // [F] ĐIỀU HƯỚNG THEO VAI TRÒ
+    // ==================================================
+
+    // Admin chưa có trang hỏi AI trong phạm vi Day 15.
+    // Backend vẫn là nơi quyết định quyền truy cập.
+    const canUseAi =
+        session?.user.role === "STUDENT" ||
+        session?.user.role === "TEACHER";
+
+    const handleNavigate = (page: AppPage) => {
+        if (page === "ai" && !canUseAi) {
+            return;
+        }
+
+        setActivePage(page);
+    };
+
+    // ==================================================
+    // [G] GIAO DIỆN KHI ĐÃ ĐĂNG NHẬP
     // ==================================================
 
     if (session) {
-        const { user } = session;
+        const { user, token } = session;
+
+        const currentPage: AppPage =
+            activePage === "ai" && !canUseAi
+                ? "dashboard"
+                : activePage;
 
         return (
-            <div className="dashboard-page">
-                <header className="dashboard-header">
-                    <div className="brand">
-                        <span className="brand-mark">K</span>
-                        <span>Kdocument</span>
-                    </div>
-
-                    <button
-                        type="button"
-                        className="logout-button"
-                        onClick={handleLogout}
-                    >
-                        Đăng xuất
-                    </button>
-                </header>
-
-                <main className="dashboard-main">
-                    <div className="welcome-icon">✓</div>
-
-                    <span className="eyebrow">
-                        KDOCUMENT LEARNING PLATFORM
-                    </span>
-
-                    <h1>Chào mừng trở lại!</h1>
-
-                    <p className="welcome-description">
-                        Đăng nhập thành công. Tài khoản của bạn
-                        đã kết nối với hệ thống Kdocument.
-                    </p>
-
-                    <section className="profile-card">
-                        <div className="profile-avatar">
-                            {user.full_name.charAt(0).toUpperCase()}
-                        </div>
-
-                        <div className="profile-details">
-                            <h2>{user.full_name}</h2>
-                            <p>{user.email}</p>
-                            <span className="role-label">
-                                {ROLE_NAMES[user.role] || user.role}
-                            </span>
-                        </div>
-                    </section>
-
-                    <RagChat token={session.token} />
-                </main>
-            </div>
+            <AppLayout
+                user={user}
+                activePage={currentPage}
+                onNavigate={handleNavigate}
+                onLogout={handleLogout}
+            >
+                {currentPage === "ai" && canUseAi ? (
+                    <RagChat token={token} />
+                ) : (
+                    <RoleDashboard
+                        user={user}
+                        onNavigate={handleNavigate}
+                    />
+                )}
+            </AppLayout>
         );
     }
 
     // ==================================================
-    // [E] GIAO DIỆN ĐĂNG NHẬP
+    // [H] GIAO DIỆN ĐĂNG NHẬP
     // ==================================================
 
     return (
         <main className="login-page">
+
+            {/* Khu vực giới thiệu Kdocument */}
             <section className="login-intro">
                 <div className="brand brand-light">
                     <span className="brand-mark">K</span>
@@ -249,14 +288,18 @@ function App() {
                 </p>
             </section>
 
+            {/* Form đăng nhập */}
             <section className="login-panel">
                 <div className="login-form-wrapper">
+
                     <div className="mobile-brand">
                         <span className="brand-mark">K</span>
                         <strong>Kdocument</strong>
                     </div>
 
-                    <span className="eyebrow">CHÀO MỪNG TRỞ LẠI</span>
+                    <span className="eyebrow">
+                        CHÀO MỪNG TRỞ LẠI
+                    </span>
 
                     <h2>Đăng nhập</h2>
 
@@ -265,6 +308,8 @@ function App() {
                     </p>
 
                     <form onSubmit={handleLogin}>
+
+                        {/* Email */}
                         <div className="form-field">
                             <label htmlFor="email">
                                 Địa chỉ email
@@ -283,6 +328,7 @@ function App() {
                             />
                         </div>
 
+                        {/* Mật khẩu */}
                         <div className="form-field">
                             <label htmlFor="password">
                                 Mật khẩu
@@ -309,7 +355,12 @@ function App() {
                                     type="button"
                                     className="password-toggle"
                                     onClick={() =>
-                                        setShowPassword(!showPassword)
+                                        setShowPassword((current) => !current)
+                                    }
+                                    aria-label={
+                                        showPassword
+                                            ? "Ẩn mật khẩu"
+                                            : "Hiện mật khẩu"
                                     }
                                 >
                                     {showPassword ? "Ẩn" : "Hiện"}
@@ -317,6 +368,7 @@ function App() {
                             </div>
                         </div>
 
+                        {/* Thông báo lỗi */}
                         {error && (
                             <div
                                 className="form-error"
@@ -326,6 +378,7 @@ function App() {
                             </div>
                         )}
 
+                        {/* Nút đăng nhập */}
                         <button
                             type="submit"
                             className="login-button"

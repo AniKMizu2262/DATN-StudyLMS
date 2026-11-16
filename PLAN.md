@@ -1,103 +1,113 @@
-# Kdocument — Development Plan
+# Kdocument – Day 15: Tích hợp giao diện Stitch
 
-## Project Goal
+**Ngày:** 16/11/2026  
+**Nhánh Git:** `Day15-StitchUI`  
+**Giai đoạn:** Frontend React + TypeScript  
+**Trạng thái:** Đang triển khai
 
-Build a Learning Management System (LMS) with an AI assistant that answers questions using course documents. Prioritize a working, maintainable system that can be tested, demonstrated, and documented before the December 2026 graduation deadline.
+---
 
-## Phase 1: Requirements and Design
+## 1. Mục tiêu
 
-- [ ] Finalize the minimum viable feature scope.
-- [ ] Define Admin, Teacher, and Student roles and permissions.
-- [ ] Document functional and non-functional requirements.
-- [ ] Create the Use Case diagram.
-- [ ] Design the ERD and data dictionary.
-- [ ] Define the initial system architecture and technology stack.
+Chuyển giao diện Google Stitch thành hệ thống React + TypeScript có ba vai trò: STUDENT, TEACHER, ADMIN.
 
-**Completion criteria:** Core requirements, user permissions, and database design are documented.
+Giữ nguyên những thành phần đã chạy thành công trong Day 14: đăng nhập JWT, kết nối Express API và trợ lý RAG.
 
-## Phase 2: Project Setup
+## 2. Nguyên tắc tổ chức code
 
-- [ ] Create the frontend and backend project structure.
-- [ ] Configure environment variables and `.env.example`.
-- [ ] Connect the backend to MySQL.
-- [ ] Configure Git branches and commit conventions.
-- [ ] Run a basic frontend, backend, and database connection test.
+- Mỗi component giao diện có file TSX riêng.
+- CSS của component phải nằm trong file CSS tương ứng.
+- Không viết CSS trực tiếp bằng `style={{...}}` nếu không cần thiết.
+- Đặt tên CSS theo component để hạn chế xung đột.
+- Dùng chung `AppLayout` cho ba vai trò.
+- Không dùng dữ liệu minh họa của Stitch như dữ liệu thật.
+- Backend chịu trách nhiệm xác thực và phân quyền.
 
-**Completion criteria:** The application starts locally and the backend can communicate with MySQL.
+## 3. Tiến độ
 
-## Phase 3: Authentication and Authorization
+### 3.1. Thiết kế Stitch
 
-- [ ] Implement login and logout.
-- [ ] Implement Admin, Teacher, and Student roles.
-- [ ] Protect APIs using authentication and authorization middleware.
-- [ ] Validate input and handle common errors.
-- [ ] Test unauthorized access and role restrictions.
+- [x] Thiết kế AI Chat Desktop
+- [x] Thiết kế AI Chat Mobile
+- [x] Thiết kế Student Dashboard
+- [x] Thiết kế Teacher Dashboard
+- [x] Thiết kế Admin Dashboard
+- [x] Xuất ZIP tham chiếu
 
-**Completion criteria:** Users can sign in and access only the functions and data permitted for their roles.
+### 3.2. Chuyển sang React
 
-## Phase 4: Learning Management
+- [ ] Hoàn thiện `AppLayout.tsx`
+- [ ] Kiểm tra `AppLayout.css`
+- [ ] Hoàn thiện `RoleDashboard.tsx`
+- [ ] Tạo `RoleDashboard.css`
+- [ ] Ghép Dashboard vào `App.tsx`
+- [ ] Kiểm thử đăng nhập và đăng xuất
+- [ ] Kiểm thử ba vai trò
+- [ ] Kiểm thử lại RAG
+- [ ] Chạy build và lint
 
-- [ ] Implement user management for Admin.
-- [ ] Implement subject management.
-- [ ] Assign multiple teachers to a subject where needed.
-- [ ] Implement PDF upload, listing, viewing, and deletion.
-- [ ] Track document-processing status.
-- [ ] Enforce document access permissions.
-- [ ] Handle document updates and removal of related indexed content.
+### 3.3. Chức năng chưa triển khai
 
-**Completion criteria:** Core user, subject, and document workflows work correctly.
+- [ ] Trang quản lý môn học
+- [ ] Trang tài liệu theo quyền
+- [ ] Trang quản lý người dùng
+- [ ] Giao diện phê duyệt tài liệu
+- [ ] Thống kê từ database
+- [ ] Lịch sử hội thoại lưu MySQL
+- [ ] Dropdown chọn tài liệu thay ID thủ công
+- [ ] OTP xác minh email
+- [ ] Kiểm tra và xử lý phiên JWT hết hạn
 
-## Phase 5: RAG and AI Assistant
+## 4. Nhật ký thay đổi
 
-- [ ] Extract text from PDF documents.
-- [ ] Split extracted text into chunks and preserve page information where possible.
-- [ ] Generate embeddings for document chunks.
-- [ ] Store and retrieve embeddings using the selected vector storage solution.
-- [ ] Retrieve relevant chunks for a user's question.
-- [ ] Generate an answer grounded in retrieved content.
-- [ ] Display citations and page information where available.
-- [ ] Handle questions that cannot be answered from available documents.
-- [ ] Prevent retrieval of documents the current user is not allowed to access.
+### Day 15 – Đợt 1
 
-**Completion criteria:** Users can ask questions about accessible documents and receive answers with verifiable sources.
+**Nội dung:** Chuẩn hóa cấu trúc frontend.
 
-## Phase 6: Conversation History and Basic Dashboard
+- Tách Dashboard thành TSX và CSS riêng.
+- Chuyển cấu hình Student, Teacher, Admin vào một component dùng chung.
+- Giữ lại `api.ts` và `RagChat.tsx`.
+- Chuẩn hóa điều hướng Dashboard / Trợ lý AI.
+- Không thay đổi backend hoặc MySQL.
 
-- [ ] Save conversations and messages.
-- [ ] List and reopen the current user's conversations.
-- [ ] Allow users to delete their own conversations.
-- [ ] Display basic system statistics if time permits.
-- [ ] Verify conversation ownership and statistics access.
+## 5. Nhật ký lỗi và rủi ro
 
-**Completion criteria:** Conversation history persists correctly and private data is protected.
+| Mã | Vấn đề | Hướng xử lý | Trạng thái |
+|---|---|---|---|
+| UI-01 | CSS Dashboard nằm chung file Layout | Tách `RoleDashboard.css` | Chờ kiểm thử |
+| UI-02 | Chèn JSX thủ công dễ sai cấu trúc | Viết lại `App.tsx` hoàn chỉnh | Chờ build |
+| UI-03 | Chưa xử lý JWT hết hạn khi khôi phục phiên | Bổ sung kiểm tra phiên | Chưa làm |
+| UI-04 | Menu chưa có trang hoặc API tương ứng | Hiển thị chức năng chưa triển khai | Tạm thời |
+| UI-05 | Dashboard chưa sử dụng dữ liệu MySQL | Kết nối API theo từng vai trò | Chưa làm |
 
-## Phase 7: Testing and Deployment
+## 6. Kiểm thử bắt buộc
 
-- [ ] Test the main user workflows.
-- [ ] Test authentication, authorization, and document access.
-- [ ] Test PDF processing, retrieval quality, and citations.
-- [ ] Fix critical bugs and improve usability.
-- [ ] Write installation and usage instructions.
-- [ ] Prepare a deployment environment.
-- [ ] Complete the thesis report, presentation, and demo script.
-- [ ] Test the final demo from a clean setup.
+- [ ] `npm run build` thành công
+- [ ] `npm run lint` không có lỗi
+- [ ] STUDENT đăng nhập đúng Dashboard
+- [ ] TEACHER đăng nhập đúng Dashboard
+- [ ] ADMIN đăng nhập đúng Dashboard
+- [ ] Giảng viên hỏi được tài liệu số 9
+- [ ] Sinh viên không được hỏi tài liệu số 9
+- [ ] Đăng xuất xóa phiên giao diện
+- [ ] Responsive hoạt động trên mobile
 
-**Completion criteria:** The application can be installed, run, tested, and demonstrated using documented steps.
+## 7. Kế hoạch đợt tiếp theo
 
-## Priority and Time Management
+1. Kiểm tra giao diện sau khi ghép component.
+2. Chỉnh Sidebar và Header sát thiết kế Stitch.
+3. Chuyển từng Dashboard thành trang riêng khi cần.
+4. Kết nối danh sách môn học và tài liệu thật.
+5. Hoàn thiện giao diện AI Chat Desktop.
+6. Commit và push nhánh Day 15 sau khi kiểm thử đạt.
 
-1. Complete the core LMS workflows first.
-2. Build a simple end-to-end RAG pipeline before adding optional features.
-3. Prioritize authentication, document access control, and source citations.
-4. Treat the dashboard as optional if the deadline becomes tight.
-5. Reserve time for testing, deployment, thesis writing, presentation preparation, and the B1 exam.
-6. Avoid adding technologies or features without a clear project requirement.
+## 8. Lưu ý Git
 
-## Development Principles
+Không commit các nội dung sau:
 
-- Prefer readable, maintainable code over unnecessary complexity.
-- Break work into small, independently testable tasks.
-- Keep secrets and local environment files out of Git.
-- Commit and push completed work regularly.
-- Verify each phase before moving to the next.
-- Update this plan when implementation decisions change.
+- `.env` và API key.
+- JWT và thông tin đăng nhập kiểm thử.
+- `node_modules`, `dist`.
+- Các bản sao dữ liệu nhạy cảm.
+
+Chỉ merge vào `main` khi dự án hoàn thiện theo quy tắc quản lý nhánh đã thống nhất.

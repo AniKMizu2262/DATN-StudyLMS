@@ -1,0 +1,444 @@
+
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;500;600&display=swap");
+
+/* ======================================================
+   KDOCUMENT - DAY 15
+   DESIGN SYSTEM TỪ STITCH
+   ====================================================== */
+
+.kd-shell {
+    --kd-navy: #182642;
+    --kd-purple: #7568e8;
+    --kd-background: #f5f7fb;
+    --kd-border: #e2e8f0;
+    --kd-text: #1e293b;
+    --kd-muted: #64748b;
+
+    display: flex;
+    min-height: 100vh;
+    background: var(--kd-background);
+    color: var(--kd-text);
+    font-family: "Be Vietnam Pro", "Segoe UI", sans-serif;
+}
+
+.kd-shell button {
+    font-family: inherit;
+}
+
+.kd-shell .material-symbols-outlined {
+    font-size: 21px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* ======================================================
+   [A] SIDEBAR
+   ====================================================== */
+
+.kd-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 250px;
+    min-width: 250px;
+    min-height: 100vh;
+    background: #fff;
+    border-right: 1px solid var(--kd-border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    z-index: 20;
+}
+
+.kd-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 25px 20px;
+    border-bottom: 1px solid var(--kd-border);
+}
+
+.kd-logo-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--kd-navy);
+    color: white;
+    font-weight: 800;
+    font-size: 25px;
+}
+
+.kd-logo strong,
+.kd-logo small {
+    display: block;
+}
+
+.kd-logo strong {
+    font-size: 18px;
+    color: var(--kd-navy);
+}
+
+.kd-logo small {
+    margin-top: 3px;
+    font-size: 10px;
+    color: var(--kd-muted);
+}
+
+.kd-sidebar-label {
+    padding: 26px 20px 12px;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+}
+
+.kd-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 0 12px;
+}
+
+.kd-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    width: 100%;
+    min-height: 45px;
+    padding: 11px 13px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #53627b;
+    font-size: 13px;
+    text-align: left;
+}
+
+button.kd-nav-item {
+    cursor: pointer;
+}
+
+button.kd-nav-item:hover {
+    background: #f0efff;
+    color: #5647c7;
+}
+
+.kd-nav-active,
+button.kd-nav-active:hover {
+    background: #edeaff;
+    color: #5647c7;
+    font-weight: 700;
+}
+
+.kd-nav-disabled {
+    color: #9da8ba;
+}
+
+.kd-coming-soon {
+    margin-left: auto;
+    font-size: 9px;
+    white-space: nowrap;
+}
+
+.kd-sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: auto;
+    padding: 18px;
+    border-top: 1px solid var(--kd-border);
+}
+
+.kd-user-avatar {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #eae7ff;
+    color: #5d4dc7;
+    font-weight: 800;
+}
+
+.kd-user-information {
+    min-width: 0;
+}
+
+.kd-user-information strong,
+.kd-user-information small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kd-user-information strong {
+    font-size: 12px;
+}
+
+.kd-user-information small {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--kd-muted);
+}
+
+/* ======================================================
+   [B] MAIN AREA + HEADER
+   ====================================================== */
+
+.kd-main-area {
+    flex: 1;
+    min-width: 0;
+}
+
+.kd-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 82px;
+    padding: 16px 28px;
+    background: #fff;
+    border-bottom: 1px solid var(--kd-border);
+}
+
+.kd-header-left,
+.kd-header-right,
+.kd-header-account {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.kd-breadcrumb {
+    margin-bottom: 5px;
+    color: var(--kd-muted);
+    font-size: 11px;
+}
+
+.kd-topbar h1 {
+    margin: 0;
+    font-size: 21px;
+    color: var(--kd-navy);
+}
+
+.kd-header-account strong,
+.kd-header-account small {
+    display: block;
+}
+
+.kd-header-account strong {
+    font-size: 12px;
+}
+
+.kd-header-account small {
+    font-size: 11px;
+    color: var(--kd-muted);
+}
+
+.kd-logout {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 13px;
+    border: 1px solid var(--kd-border);
+    border-radius: 9px;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.kd-logout:hover {
+    background: #fff1f2;
+    color: #be123c;
+}
+
+.kd-menu-toggle {
+    display: none;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.kd-content {
+    width: 100%;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 28px;
+}
+
+/* ======================================================
+   [C] ROLE DASHBOARD
+   ====================================================== */
+
+.kd-home {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.kd-welcome {
+    padding: 30px;
+    border: 1px solid var(--kd-border);
+    border-radius: 16px;
+    background: white;
+}
+
+.kd-overline {
+    color: #6355d0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.kd-welcome h2 {
+    margin: 12px 0;
+    color: var(--kd-navy);
+    font-size: 27px;
+}
+
+.kd-welcome p {
+    max-width: 720px;
+    margin: 0;
+    color: var(--kd-muted);
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+.kd-feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.kd-feature-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 190px;
+    padding: 22px;
+    border: 1px solid var(--kd-border);
+    border-radius: 15px;
+    background: #fff;
+    text-align: left;
+}
+
+.kd-feature-card h3 {
+    margin: 17px 0 8px;
+    font-size: 16px;
+    color: var(--kd-navy);
+}
+
+.kd-feature-card p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--kd-muted);
+}
+
+.kd-feature-icon {
+    display: grid;
+    place-items: center;
+    width: 43px;
+    height: 43px;
+    border-radius: 12px;
+    background: #efedff;
+    color: #6355d0;
+}
+
+.kd-feature-status {
+    margin-top: auto;
+    padding-top: 18px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.kd-feature-action {
+    margin-top: auto;
+    padding: 16px 0 0;
+    border: 0;
+    background: transparent;
+    color: #5647c7;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.kd-overlay {
+    display: none;
+}
+
+/* ======================================================
+   [D] RESPONSIVE
+   ====================================================== */
+
+@media (max-width: 1050px) {
+    .kd-feature-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kd-header-account {
+        display: none;
+    }
+}
+
+@media (max-width: 780px) {
+    .kd-sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: 8px 0 25px rgba(24, 38, 66, 0.08);
+    }
+
+    .kd-sidebar-open {
+        transform: translateX(0);
+    }
+
+    .kd-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 15;
+        border: 0;
+        background: rgba(15, 23, 42, 0.4);
+    }
+
+    .kd-menu-toggle {
+        display: flex;
+        padding: 8px;
+    }
+
+    .kd-topbar {
+        padding: 16px;
+    }
+
+    .kd-content {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 600px) {
+    .kd-feature-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kd-welcome {
+        padding: 20px;
+    }
+
+    .kd-welcome h2 {
+        font-size: 23px;
+    }
+
+    .kd-logout span:last-child {
+        display: none;
+    }
+}

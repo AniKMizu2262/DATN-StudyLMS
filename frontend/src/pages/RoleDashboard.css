@@ -1,0 +1,205 @@
+
+/* ======================================================
+   KDOCUMENT - DAY 15
+   ROLE DASHBOARD STYLES
+   ====================================================== */
+
+/* [A] KHUNG DASHBOARD */
+
+.kd-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    width: 100%;
+}
+
+/* [B] LỜI CHÀO */
+
+.kd-dashboard__hero {
+    padding: 30px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.kd-dashboard__eyebrow {
+    color: #7568e8;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+}
+
+.kd-dashboard__hero h2 {
+    margin: 13px 0;
+    color: #182642;
+    font-size: 27px;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.kd-dashboard__hero p {
+    max-width: 740px;
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+/* [C] TIÊU ĐỀ NỘI DUNG */
+
+.kd-dashboard__section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.kd-dashboard__heading h2 {
+    margin: 0 0 8px;
+    color: #182642;
+    font-size: 21px;
+}
+
+.kd-dashboard__heading p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+/* [D] LƯỚI CHỨC NĂNG */
+
+.kd-dashboard__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.kd-dashboard__card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 218px;
+    padding: 23px;
+    border: 1px solid #e2e8f0;
+    border-radius: 15px;
+    background: #ffffff;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+}
+
+.kd-dashboard__card:hover {
+    border-color: #d1cbff;
+    box-shadow: 0 6px 22px rgba(24, 38, 66, 0.05);
+    transform: translateY(-2px);
+}
+
+.kd-dashboard__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: #efedff;
+    color: #6355d0;
+}
+
+.kd-dashboard__icon .material-symbols-outlined {
+    font-size: 24px;
+}
+
+.kd-dashboard__card h3 {
+    margin: 19px 0 9px;
+    color: #182642;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.kd-dashboard__card > p {
+    margin: 0 0 18px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+/* [E] NÚT ĐIỀU HƯỚNG */
+
+.kd-dashboard__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #6254ce;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.kd-dashboard__action:hover {
+    color: #4334a6;
+}
+
+.kd-dashboard__action .material-symbols-outlined {
+    font-size: 17px;
+}
+
+.kd-dashboard__pending {
+    margin-top: auto;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* [F] THÔNG BÁO TRẠNG THÁI */
+
+.kd-dashboard__notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 17px 20px;
+    border: 1px solid #e0ddff;
+    border-radius: 12px;
+    background: #f0efff;
+}
+
+.kd-dashboard__notice .material-symbols-outlined {
+    color: #6658d5;
+    font-size: 21px;
+}
+
+.kd-dashboard__notice p {
+    margin: 0;
+    color: #575d7a;
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+/* [G] RESPONSIVE */
+
+@media (max-width: 1050px) {
+    .kd-dashboard__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .kd-dashboard__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kd-dashboard__hero {
+        padding: 22px;
+    }
+
+    .kd-dashboard__hero h2 {
+        font-size: 23px;
+    }
+
+    .kd-dashboard__card {
+        min-height: 190px;
+    }
+}
