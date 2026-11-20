@@ -16,24 +16,25 @@ import SourcePreview from "./SourcePreview";
 import "./RagChat.css";
 
 // ======================================================
-// KDOCUMENT - RAG CHAT
-// HỘI THOẠI AI + TRÍCH DẪN TƯƠNG TÁC
+// KDOCUMENT - DAY 17
+// RAG CHAT + CITATION VIEWER + CHAT HISTORY
 // ======================================================
 
-// [01] THÔNG TIN NGUỒN TRÍCH DẪN
+// [01] KIỂU DỮ LIỆU TRÍCH DẪN
 interface Citation {
   source_number: number;
   document_id: number;
   chunk_id: number;
   page_number: number | null;
-  score: number;
+  score?: number;
 }
 
-// [02] DỮ LIỆU API RAG
+// [02] PHẢN HỒI API HỎI ĐÁP
 interface RagResponse {
   success: boolean;
   message?: string;
   data?: {
+    session_id: number;
     document_id: number;
     answer: string;
     model: string | null;
@@ -41,10 +42,48 @@ interface RagResponse {
   };
 }
 
-// [03] MỘT LƯỢT HỘI THOẠI
+// [03] PHIÊN HỘI THOẠI
+interface ChatSession {
+  session_id: number;
+  subject_id: number | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// [04] TIN NHẮN LƯU TRONG MYSQL
+interface HistoryMessage {
+  message_id: number;
+  sender_type: "USER" | "ASSISTANT";
+  content: string;
+  document_id: number | null;
+  model: string | null;
+  citations: Citation[];
+  restricted: boolean;
+  created_at: string;
+}
+
+// [05] PHẢN HỒI DANH SÁCH PHIÊN
+interface SessionListResponse {
+  success: boolean;
+  message?: string;
+  data?: ChatSession[];
+}
+
+// [06] PHẢN HỒI CHI TIẾT PHIÊN
+interface SessionDetailsResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    session: ChatSession;
+    messages: HistoryMessage[];
+  };
+}
+
+// [07] MỘT LƯỢT HỎI ĐÁP TRÊN GIAO DIỆN
 interface ChatTurn {
   id: number;
-  documentId: number;
+  documentId: number | null;
   question: string;
   answer?: string;
   model?: string | null;
@@ -52,15 +91,13 @@ interface ChatTurn {
   error?: string;
 }
 
-// [04] PROPS COMPONENT
+// [08] PROPS
 interface RagChatProps {
   token: string;
 }
 
 // ======================================================
-// [05] CHUYỂN NHÃN TRÍCH DẪN THÀNH MARKDOWN LINK
-// Chỉ chuyển nguồn có thật trong dữ liệu backend.
-// Không xử lý lại nhãn đã có liên kết Markdown.
+// [09] CHUYỂN NHÃN NGUỒN THÀNH MARKDOWN LINK
 // ======================================================
 
 const linkifyCitations = (
@@ -90,12 +127,66 @@ const linkifyCitations = (
 };
 
 // ======================================================
+// [10] KHÔI PHỤC CÁC LƯỢT CHAT TỪ MYSQL
+// Ghép USER và ASSISTANT thành một ChatTurn.
+// ======================================================
+
+const restoreChatTurns = (
+  messages: HistoryMessage[]
+): ChatTurn[] => {
+  const restored: ChatTurn[] = [];
+  let nextId = 1;
+
+  for (const message of messages) {
+    if (message.sender_type === "USER") {
+      restored.push({
+        id: nextId++,
+        documentId: message.document_id,
+        question: message.content,
+      });
+
+      continue;
+    }
+
+    if (message.sender_type !== "ASSISTANT") {
+      continue;
+    }
+
+    const lastTurn = restored[restored.length - 1];
+
+    const citations =
+      !message.restricted &&
+      Array.isArray(message.citations)
+        ? message.citations
+        : [];
+
+    if (lastTurn && lastTurn.answer === undefined) {
+      lastTurn.answer = message.content;
+      lastTurn.model = message.model;
+      lastTurn.citations = citations;
+    } else {
+      // Dự phòng nếu dữ liệu cũ thiếu tin USER.
+      restored.push({
+        id: nextId++,
+        documentId: message.document_id,
+        question: "Câu hỏi không có trong lịch sử.",
+        answer: message.content,
+        model: message.model,
+        citations,
+      });
+    }
+  }
+
+  return restored;
+};
+
+// ======================================================
 // COMPONENT CHÍNH
 // ======================================================
 
 export default function RagChat({ token }: RagChatProps) {
   // ----------------------------------------------------
-  // [06] QUẢN LÝ STATE
+  // [11] STATE GIAO DIỆN CHAT
   // ----------------------------------------------------
 
   const [documentId, setDocumentId] = useState("9");
@@ -104,25 +195,54 @@ export default function RagChat({ token }: RagChatProps) {
 
   const [isSending, setIsSending] = useState(false);
   const [formError, setFormError] = useState("");
-
   const [copiedId, setCopiedId] = useState<number | null>(
     null
   );
 
   // ----------------------------------------------------
-  // [07] REFS
+  // [12] STATE LỊCH SỬ HỘI THOẠI
+  // ----------------------------------------------------
+
+  const [sessions, setSessions] = useState<ChatSession[]>(
+    []
+  );
+
+  const [activeSessionId, setActiveSessionId] = useState<
+    number | null
+  >(null);
+
+  const [isHistoryLoading, setIsHistoryLoading] =
+    useState(true);
+
+  const [isSessionLoading, setIsSessionLoading] =
+    useState(false);
+
+  const [historyError, setHistoryError] = useState("");
+
+  // ----------------------------------------------------
+  // [13] REFS
   // ----------------------------------------------------
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const nextTurnId = useRef(1);
   const requestInProgress = useRef(false);
 
+  // Hủy request đọc phiên cũ khi đổi phiên.
+  const sessionRequestRef =
+    useRef<AbortController | null>(null);
+
+  // Ngăn response của tài khoản cũ cập nhật UI.
+  const generationRef = useRef(0);
+
   const pendingTurnId = isSending
     ? turns[turns.length - 1]?.id
     : undefined;
 
+  const isNavigationDisabled =
+    isSending || isHistoryLoading || isSessionLoading;
+
   // ----------------------------------------------------
-  // [08] TỰ CUỘN KHI CÓ TIN NHẮN MỚI
+  // [14] TỰ CUỘN KHI CÓ TIN NHẮN MỚI
   // ----------------------------------------------------
 
   useEffect(() => {
@@ -137,28 +257,283 @@ export default function RagChat({ token }: RagChatProps) {
   }, [turns, isSending]);
 
   // ----------------------------------------------------
-  // [09] ĐIỀU HƯỚNG ĐẾN NGUỒN TRÍCH DẪN
+  // [15] TẢI DANH SÁCH PHIÊN VÀ PHIÊN GẦN NHẤT
+  // Chạy khi mở trang hoặc token thay đổi.
+  // ----------------------------------------------------
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const generation = ++generationRef.current;
+
+    const initializeHistory = async () => {
+      setIsHistoryLoading(true);
+      setHistoryError("");
+      setSessions([]);
+      setTurns([]);
+      setActiveSessionId(null);
+      setQuestion("");
+      setCopiedId(null);
+
+      nextTurnId.current = 1;
+
+      // Hủy request đọc phiên còn tồn tại.
+      sessionRequestRef.current?.abort();
+      sessionRequestRef.current = null;
+
+      try {
+        // [15.1] Lấy danh sách phiên.
+        const response =
+          await apiRequest<SessionListResponse>(
+            "/chat/sessions",
+            {
+              method: "GET",
+              token,
+              signal: controller.signal,
+            }
+          );
+
+        if (
+          controller.signal.aborted ||
+          generation !== generationRef.current
+        ) {
+          return;
+        }
+
+        if (!response.success || !response.data) {
+          throw new Error(
+            response.message ||
+              "Không thể tải lịch sử hội thoại."
+          );
+        }
+
+        const sessionList = response.data;
+        setSessions(sessionList);
+
+        // [15.2] Không có phiên thì hiện chat trống.
+        if (sessionList.length === 0) {
+          return;
+        }
+
+        // [15.3] Mở phiên mới hoạt động gần nhất.
+        const latestSession = sessionList[0];
+
+        const detail =
+          await apiRequest<SessionDetailsResponse>(
+            `/chat/sessions/${latestSession.session_id}`,
+            {
+              method: "GET",
+              token,
+              signal: controller.signal,
+            }
+          );
+
+        if (
+          controller.signal.aborted ||
+          generation !== generationRef.current
+        ) {
+          return;
+        }
+
+        if (!detail.success || !detail.data) {
+          throw new Error(
+            detail.message ||
+              "Không thể tải phiên hội thoại."
+          );
+        }
+
+        const restored = restoreChatTurns(
+          detail.data.messages
+        );
+
+        nextTurnId.current = restored.length + 1;
+
+        setTurns(restored);
+        setActiveSessionId(latestSession.session_id);
+
+        // Khôi phục mã tài liệu từ lượt hỏi gần nhất.
+        const lastDocumentId = [...restored]
+          .reverse()
+          .find(
+            (turn) =>
+              turn.documentId !== null &&
+              turn.documentId > 0
+          )?.documentId;
+
+        if (lastDocumentId) {
+          setDocumentId(String(lastDocumentId));
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+
+        if (generation !== generationRef.current) {
+          return;
+        }
+
+        setHistoryError(
+          error instanceof Error
+            ? error.message
+            : "Không thể tải lịch sử hội thoại."
+        );
+      } finally {
+        if (
+          !controller.signal.aborted &&
+          generation === generationRef.current
+        ) {
+          setIsHistoryLoading(false);
+        }
+      }
+    };
+
+    void initializeHistory();
+
+    return () => {
+      generationRef.current++;
+      controller.abort();
+    };
+  }, [token]);
+
+  // ----------------------------------------------------
+  // [16] LÀM MỚI DANH SÁCH PHIÊN
+  // ----------------------------------------------------
+
+  const refreshSessions = async () => {
+    const response =
+      await apiRequest<SessionListResponse>(
+        "/chat/sessions",
+        {
+          method: "GET",
+          token,
+        }
+      );
+
+    if (!response.success || !response.data) {
+      throw new Error(
+        response.message ||
+          "Không thể cập nhật danh sách hội thoại."
+      );
+    }
+
+    setSessions(response.data);
+  };
+
+  // ----------------------------------------------------
+  // [17] CHỌN MỘT PHIÊN HỘI THOẠI
+  // ----------------------------------------------------
+
+  const openSession = async (sessionId: number) => {
+    if (isNavigationDisabled) return;
+
+    if (activeSessionId === sessionId) return;
+
+    sessionRequestRef.current?.abort();
+
+    const controller = new AbortController();
+    sessionRequestRef.current = controller;
+
+    const generation = generationRef.current;
+
+    setIsSessionLoading(true);
+    setHistoryError("");
+    setActiveSessionId(sessionId);
+    setTurns([]);
+    setQuestion("");
+
+    try {
+      const response =
+        await apiRequest<SessionDetailsResponse>(
+          `/chat/sessions/${sessionId}`,
+          {
+            method: "GET",
+            token,
+            signal: controller.signal,
+          }
+        );
+
+      if (
+        controller.signal.aborted ||
+        generation !== generationRef.current
+      ) {
+        return;
+      }
+
+      if (!response.success || !response.data) {
+        throw new Error(
+          response.message ||
+            "Không thể mở cuộc hội thoại."
+        );
+      }
+
+      const restored = restoreChatTurns(
+        response.data.messages
+      );
+
+      nextTurnId.current = restored.length + 1;
+
+      setTurns(restored);
+
+      const lastDocumentId = [...restored]
+        .reverse()
+        .find(
+          (turn) =>
+            turn.documentId !== null &&
+            turn.documentId > 0
+        )?.documentId;
+
+      if (lastDocumentId) {
+        setDocumentId(String(lastDocumentId));
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+
+      setHistoryError(
+        error instanceof Error
+          ? error.message
+          : "Không thể mở cuộc hội thoại."
+      );
+    } finally {
+      if (sessionRequestRef.current === controller) {
+        sessionRequestRef.current = null;
+        setIsSessionLoading(false);
+      }
+    }
+  };
+
+  // ----------------------------------------------------
+  // [18] BẮT ĐẦU CUỘC HỘI THOẠI MỚI
+  // Phiên MySQL sẽ được tạo khi RAG trả lời thành công.
+  // ----------------------------------------------------
+
+  const startNewChat = () => {
+    if (isNavigationDisabled) return;
+
+    sessionRequestRef.current?.abort();
+    sessionRequestRef.current = null;
+
+    setActiveSessionId(null);
+    setTurns([]);
+    setQuestion("");
+    setFormError("");
+    setHistoryError("");
+    setCopiedId(null);
+
+    nextTurnId.current = 1;
+  };
+
+  // ----------------------------------------------------
+  // [19] NHẢY ĐẾN NGUỒN TRÍCH DẪN
   // ----------------------------------------------------
 
   const jumpToCitation = (anchorId: string) => {
-    // [09.1] Tìm đúng khung nguồn theo ID.
     const target = document.getElementById(anchorId);
 
-    if (!target) {
-      console.warn(
-        "[Kdocument] Không tìm thấy nguồn:",
-        anchorId
-      );
-      return;
-    }
+    if (!target) return;
 
-    // [09.2] Tìm nút mở SourcePreview.
     const trigger =
       target.querySelector<HTMLButtonElement>(
         ".kd-source-preview__trigger"
       );
 
-    // [09.3] Chỉ mở khi nguồn đang thu gọn.
+    // Mở chunk nếu nguồn đang thu gọn.
     if (
       trigger &&
       trigger.getAttribute("aria-expanded") === "false" &&
@@ -167,38 +542,35 @@ export default function RagChat({ token }: RagChatProps) {
       trigger.click();
     }
 
-    // [09.4] Cuộn tới đúng nguồn tương ứng.
     target.scrollIntoView({
       behavior: "smooth",
       block: "center",
     });
 
-    // [09.5] Xóa hiệu ứng cũ để có thể chạy lại.
+    // Kích hoạt lại hiệu ứng viền tím.
     target.classList.remove(
       "kd-chat__source-highlight"
     );
 
-    // [09.6] Khởi động lại CSS animation.
     void target.offsetWidth;
 
-    // [09.7] Làm nổi bật nguồn vừa được chọn.
     target.classList.add(
       "kd-chat__source-highlight"
     );
   };
 
   // ----------------------------------------------------
-  // [10] GỬI CÂU HỎI ĐẾN API RAG
+  // [20] GỬI CÂU HỎI VÀ LƯU VÀO ĐÚNG PHIÊN
   // ----------------------------------------------------
 
   const sendQuestion = async () => {
-    // Tránh gửi hai request cùng lúc.
     if (requestInProgress.current) return;
+
+    if (isHistoryLoading || isSessionLoading) return;
 
     const cleanQuestion = question.trim();
     const parsedDocumentId = Number(documentId);
 
-    // Kiểm tra mã tài liệu.
     if (
       !Number.isSafeInteger(parsedDocumentId) ||
       parsedDocumentId <= 0
@@ -207,11 +579,8 @@ export default function RagChat({ token }: RagChatProps) {
       return;
     }
 
-    // Kiểm tra câu hỏi.
     if (!cleanQuestion) {
-      setFormError(
-        "Vui lòng nhập câu hỏi trước khi gửi."
-      );
+      setFormError("Vui lòng nhập câu hỏi.");
       return;
     }
 
@@ -222,8 +591,8 @@ export default function RagChat({ token }: RagChatProps) {
       return;
     }
 
-    // Tạo lượt chat và hiển thị câu hỏi ngay.
     const turnId = nextTurnId.current++;
+    const generation = generationRef.current;
 
     setTurns((previous) => [
       ...previous,
@@ -241,29 +610,43 @@ export default function RagChat({ token }: RagChatProps) {
     requestInProgress.current = true;
 
     try {
-      // Gọi API RAG đang có.
+      // [20.1] Gửi session_id nếu đang hỏi tiếp.
+      const requestBody = {
+        document_id: parsedDocumentId,
+        question: cleanQuestion,
+        ...(activeSessionId !== null
+          ? { session_id: activeSessionId }
+          : {}),
+      };
+
       const response = await apiRequest<RagResponse>(
         "/rag/ask",
         {
           method: "POST",
           token,
-          body: JSON.stringify({
-            document_id: parsedDocumentId,
-            question: cleanQuestion,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
+      if (generation !== generationRef.current) {
+        return;
+      }
+
       const result = response.data;
 
-      if (!response.success || !result) {
+      if (
+        !response.success ||
+        !result ||
+        !Number.isSafeInteger(result.session_id) ||
+        result.session_id <= 0
+      ) {
         throw new Error(
           response.message ||
-            "Không nhận được câu trả lời."
+            "Không nhận được kết quả lưu hội thoại."
         );
       }
 
-      // Gắn câu trả lời vào đúng lượt hỏi.
+      // [20.2] Gắn câu trả lời vào lượt hiện tại.
       setTurns((previous) =>
         previous.map((turn) =>
           turn.id === turnId
@@ -276,30 +659,50 @@ export default function RagChat({ token }: RagChatProps) {
             : turn
         )
       );
+
+      // [20.3] Ghi nhận phiên MySQL vừa tạo/cập nhật.
+      setActiveSessionId(result.session_id);
+
+      // [20.4] Tải lại danh sách sidebar.
+      // Nếu tải danh sách lỗi vẫn giữ câu trả lời.
+      try {
+        await refreshSessions();
+      } catch {
+        if (generation === generationRef.current) {
+          setHistoryError(
+            "Đã lưu câu trả lời nhưng chưa cập nhật " +
+              "được danh sách hội thoại."
+          );
+        }
+      }
     } catch (error) {
+      if (generation !== generationRef.current) {
+        return;
+      }
+
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Không thể gửi câu hỏi. Vui lòng thử lại.";
+          : "Không thể gửi câu hỏi.";
 
       setTurns((previous) =>
         previous.map((turn) =>
           turn.id === turnId
-            ? {
-                ...turn,
-                error: errorMessage,
-              }
+            ? { ...turn, error: errorMessage }
             : turn
         )
       );
     } finally {
       requestInProgress.current = false;
-      setIsSending(false);
+
+      if (generation === generationRef.current) {
+        setIsSending(false);
+      }
     }
   };
 
   // ----------------------------------------------------
-  // [11] XỬ LÝ SUBMIT
+  // [21] FORM VÀ BÀN PHÍM
   // ----------------------------------------------------
 
   const handleSubmit = (
@@ -308,10 +711,6 @@ export default function RagChat({ token }: RagChatProps) {
     event.preventDefault();
     void sendQuestion();
   };
-
-  // ----------------------------------------------------
-  // [12] ENTER GỬI - SHIFT + ENTER XUỐNG DÒNG
-  // ----------------------------------------------------
 
   const handleKeyDown = (
     event: KeyboardEvent<HTMLTextAreaElement>
@@ -327,7 +726,7 @@ export default function RagChat({ token }: RagChatProps) {
   };
 
   // ----------------------------------------------------
-  // [13] SAO CHÉP CÂU TRẢ LỜI
+  // [22] SAO CHÉP CÂU TRẢ LỜI
   // ----------------------------------------------------
 
   const copyAnswer = async (turn: ChatTurn) => {
@@ -337,40 +736,36 @@ export default function RagChat({ token }: RagChatProps) {
       await navigator.clipboard.writeText(turn.answer);
       setCopiedId(turn.id);
     } catch {
-      setFormError(
-        "Không thể sao chép câu trả lời."
-      );
+      setFormError("Không thể sao chép câu trả lời.");
     }
   };
 
   // ----------------------------------------------------
-  // [14] ĐIỀN LẠI CÂU HỎI KHI GẶP LỖI
+  // [23] ĐIỀN LẠI CÂU HỎI BỊ LỖI
   // ----------------------------------------------------
 
   const prepareRetry = (turn: ChatTurn) => {
-    setDocumentId(String(turn.documentId));
+    if (turn.documentId !== null) {
+      setDocumentId(String(turn.documentId));
+    }
+
     setQuestion(turn.question);
     setFormError("");
   };
 
   // ====================================================
-  // [15] GIAO DIỆN
+  // [24] GIAO DIỆN
   // ====================================================
 
   return (
-    <section
-      className="kd-chat"
-      aria-label="Kdocument AI"
-    >
+    <section className="kd-chat" aria-label="Kdocument AI">
       {/* ============================================= */}
       {/* HEADER */}
       {/* ============================================= */}
 
       <header className="kd-chat__header">
         <div className="kd-chat__brand">
-          <div className="kd-chat__brand-icon">
-            ✦
-          </div>
+          <div className="kd-chat__brand-icon">✦</div>
 
           <div>
             <p className="kd-chat__eyebrow">
@@ -386,368 +781,425 @@ export default function RagChat({ token }: RagChatProps) {
           </div>
         </div>
 
-        <span className="kd-chat__badge">
-          RAG
-        </span>
+        <span className="kd-chat__badge">RAG</span>
       </header>
 
       {/* ============================================= */}
-      {/* DANH SÁCH HỘI THOẠI */}
+      {/* BỐ CỤC: LỊCH SỬ + HỘI THOẠI */}
       {/* ============================================= */}
 
-      <div
-        className="kd-chat__messages"
-        ref={messagesRef}
-      >
-        {/* Chưa có tin nhắn */}
+      <div className="kd-chat__workspace">
+        {/* ----------------------------------------- */}
+        {/* SIDEBAR LỊCH SỬ */}
+        {/* ----------------------------------------- */}
 
-        {turns.length === 0 && (
-          <div className="kd-chat__empty">
-            <div className="kd-chat__empty-icon">
-              ✦
-            </div>
+        <aside
+          className="kd-chat__history"
+          aria-label="Lịch sử hội thoại AI"
+        >
+          <div className="kd-chat__history-header">
+            <h3>Lịch sử hội thoại</h3>
 
-            <h3>
-              Bạn muốn tìm hiểu điều gì?
-            </h3>
-
-            <p>
-              Chọn mã tài liệu, nhập câu hỏi và
-              Kdocument AI sẽ tìm nội dung liên quan
-              để trả lời.
-            </p>
+            <button
+              type="button"
+              className="kd-chat__new-chat"
+              onClick={startNewChat}
+              disabled={isNavigationDisabled}
+            >
+              + Chat mới
+            </button>
           </div>
-        )}
 
-        {/* Danh sách các lượt hỏi đáp */}
+          {historyError && (
+            <p
+              className="kd-chat__history-error"
+              role="alert"
+            >
+              {historyError}
+            </p>
+          )}
 
-        {turns.map((turn) => (
-          <div
-            className="kd-chat__turn"
-            key={turn.id}
-          >
-            {/* ------------------------------------- */}
-            {/* TIN NHẮN NGƯỜI DÙNG */}
-            {/* ------------------------------------- */}
+          {isHistoryLoading && (
+            <p className="kd-chat__history-muted">
+              Đang tải lịch sử...
+            </p>
+          )}
 
-            <div className="kd-chat__user-row">
-              <div className="kd-chat__user-message">
-                <span className="kd-chat__message-label">
-                  Bạn · Tài liệu {turn.documentId}
-                </span>
-
-                <p>{turn.question}</p>
-              </div>
-            </div>
-
-            {/* ------------------------------------- */}
-            {/* TIN NHẮN TRẢ LỜI AI */}
-            {/* ------------------------------------- */}
-
-            {turn.answer !== undefined && (
-              <article className="kd-chat__assistant-message">
-                <div className="kd-chat__assistant-name">
-                  <span className="kd-chat__sparkle">
-                    ✦
-                  </span>
-
-                  Kdocument AI
-                </div>
-
-                {/* --------------------------------- */}
-                {/* MARKDOWN + LIÊN KẾT TRÍCH DẪN */}
-                {/* --------------------------------- */}
-
-                <div className="kd-chat__markdown">
-                  <Markdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      a: ({ href, children }) => {
-                        // Nhận dạng link nguồn nội bộ.
-                        const match = href?.match(
-                          /^#kd-source-(\d+)-(\d+)$/
-                        );
-
-                        if (match) {
-                          const linkedTurnId = Number(
-                            match[1]
-                          );
-
-                          const sourceNumber = Number(
-                            match[2]
-                          );
-
-                          // Link phải thuộc đúng lượt
-                          // và đúng nguồn backend trả về.
-                          const isValidCitation =
-                            linkedTurnId === turn.id &&
-                            (turn.citations ?? []).some(
-                              (citation) =>
-                                citation.source_number ===
-                                sourceNumber
-                            );
-
-                          if (isValidCitation) {
-                            // Lấy anchor đã kiểm tra.
-                            const anchorId =
-                              match[0].slice(1);
-
-                            return (
-                              <a
-                                href={match[0]}
-                                className="kd-chat__citation-link"
-                                onClick={(event) => {
-                                  event.preventDefault();
-
-                                  jumpToCitation(
-                                    anchorId
-                                  );
-                                }}
-                              >
-                                {children}
-                              </a>
-                            );
-                          }
-                        }
-
-                        // Link Markdown thông thường.
-                        return (
-                          <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {children}
-                          </a>
-                        );
-                      },
-                    }}
-                  >
-                    {linkifyCitations(
-                      turn.answer,
-                      turn.citations ?? [],
-                      turn.id
-                    )}
-                  </Markdown>
-                </div>
-
-                {/* --------------------------------- */}
-                {/* DANH SÁCH NGUỒN THAM KHẢO */}
-                {/* --------------------------------- */}
-
-                {turn.citations &&
-                  turn.citations.length > 0 && (
-                    <div className="kd-chat__sources">
-                      <h4>
-                        Nguồn tham khảo
-                      </h4>
-
-                      <div className="kd-chat__source-list">
-                        {turn.citations.map(
-                          (source) => {
-                            const anchorId =
-                              `kd-source-${turn.id}-${source.source_number}`;
-
-                            return (
-                              <div
-                                id={anchorId}
-                                key={`${source.document_id}-${source.chunk_id}-${source.source_number}`}
-                              >
-                                <SourcePreview
-                                  citation={source}
-                                  token={token}
-                                />
-                              </div>
-                            );
-                          }
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                {/* --------------------------------- */}
-                {/* MODEL + SAO CHÉP */}
-                {/* --------------------------------- */}
-
-                <div className="kd-chat__answer-footer">
-                  <span className="kd-chat__model">
-                    {turn.model
-                      ? `Model: ${turn.model}`
-                      : ""}
-                  </span>
-
-                  <button
-                    type="button"
-                    className="kd-chat__copy-button"
-                    onClick={() =>
-                      void copyAnswer(turn)
-                    }
-                  >
-                    {copiedId === turn.id
-                      ? "✓ Đã sao chép"
-                      : "Sao chép"}
-                  </button>
-                </div>
-              </article>
+          {!isHistoryLoading &&
+            sessions.length === 0 && (
+              <p className="kd-chat__history-muted">
+                Chưa có cuộc trò chuyện nào.
+              </p>
             )}
 
-            {/* ------------------------------------- */}
-            {/* AI ĐANG XỬ LÝ */}
-            {/* ------------------------------------- */}
+          <div className="kd-chat__history-list">
+            {sessions.map((session) => (
+              <button
+                key={session.session_id}
+                type="button"
+                className={
+                  "kd-chat__history-item" +
+                  (activeSessionId === session.session_id
+                    ? " kd-chat__history-item--active"
+                    : "")
+                }
+                onClick={() =>
+                  void openSession(session.session_id)
+                }
+                disabled={isNavigationDisabled}
+                aria-current={
+                  activeSessionId === session.session_id
+                    ? "true"
+                    : undefined
+                }
+              >
+                <span className="kd-chat__history-title">
+                  {session.title}
+                </span>
 
-            {pendingTurnId === turn.id &&
-              turn.answer === undefined &&
-              !turn.error && (
-                <div
-                  className="kd-chat__thinking"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span className="kd-chat__sparkle">
+                <span className="kd-chat__history-id">
+                  Phiên #{session.session_id}
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* ----------------------------------------- */}
+        {/* KHUNG HỘI THOẠI CHÍNH */}
+        {/* ----------------------------------------- */}
+
+        <div className="kd-chat__conversation">
+          <div
+            className="kd-chat__messages"
+            ref={messagesRef}
+          >
+            {isSessionLoading && (
+              <div className="kd-chat__empty">
+                <p>Đang mở cuộc hội thoại...</p>
+              </div>
+            )}
+
+            {!isSessionLoading &&
+              turns.length === 0 && (
+                <div className="kd-chat__empty">
+                  <div className="kd-chat__empty-icon">
                     ✦
-                  </span>
+                  </div>
 
-                  <span>
-                    Đang tìm thông tin trong tài liệu
-                  </span>
+                  <h3>Bạn muốn tìm hiểu điều gì?</h3>
 
-                  <span className="kd-chat__thinking-dots">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
+                  <p>
+                    Chọn tài liệu và đặt câu hỏi.
+                    Kdocument AI sẽ lưu hội thoại
+                    để bạn có thể xem lại.
+                  </p>
                 </div>
               )}
 
-            {/* ------------------------------------- */}
-            {/* THÔNG BÁO LỖI */}
-            {/* ------------------------------------- */}
+            {!isSessionLoading &&
+              turns.map((turn) => (
+                <div
+                  className="kd-chat__turn"
+                  key={turn.id}
+                >
+                  {/* TIN NHẮN NGƯỜI DÙNG */}
 
-            {turn.error && (
-              <div
-                className="kd-chat__error-message"
+                  <div className="kd-chat__user-row">
+                    <div className="kd-chat__user-message">
+                      <span className="kd-chat__message-label">
+                        Bạn
+                        {turn.documentId !== null
+                          ? ` · Tài liệu ${turn.documentId}`
+                          : ""}
+                      </span>
+
+                      <p>{turn.question}</p>
+                    </div>
+                  </div>
+
+                  {/* CÂU TRẢ LỜI AI */}
+
+                  {turn.answer !== undefined && (
+                    <article className="kd-chat__assistant-message">
+                      <div className="kd-chat__assistant-name">
+                        <span className="kd-chat__sparkle">
+                          ✦
+                        </span>
+                        Kdocument AI
+                      </div>
+
+                      {/* MARKDOWN + NGUỒN TƯƠNG TÁC */}
+
+                      <div className="kd-chat__markdown">
+                        <Markdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            a: ({ href, children }) => {
+                              const match = href?.match(
+                                /^#kd-source-(\d+)-(\d+)$/
+                              );
+
+                              if (match) {
+                                const linkedTurnId =
+                                  Number(match[1]);
+
+                                const sourceNumber =
+                                  Number(match[2]);
+
+                                const valid =
+                                  linkedTurnId ===
+                                    turn.id &&
+                                  (
+                                    turn.citations ?? []
+                                  ).some(
+                                    (citation) =>
+                                      citation.source_number ===
+                                      sourceNumber
+                                  );
+
+                                if (valid) {
+                                  const anchorId =
+                                    match[0].slice(1);
+
+                                  return (
+                                    <a
+                                      href={match[0]}
+                                      className="kd-chat__citation-link"
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        jumpToCitation(
+                                          anchorId
+                                        );
+                                      }}
+                                    >
+                                      {children}
+                                    </a>
+                                  );
+                                }
+                              }
+
+                              return (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {children}
+                                </a>
+                              );
+                            },
+                          }}
+                        >
+                          {linkifyCitations(
+                            turn.answer,
+                            turn.citations ?? [],
+                            turn.id
+                          )}
+                        </Markdown>
+                      </div>
+
+                      {/* DANH SÁCH TRÍCH DẪN */}
+
+                      {turn.citations &&
+                        turn.citations.length > 0 && (
+                          <div className="kd-chat__sources">
+                            <h4>Nguồn tham khảo</h4>
+
+                            <div className="kd-chat__source-list">
+                              {turn.citations.map(
+                                (source) => {
+                                  const anchorId =
+                                    `kd-source-${turn.id}-${source.source_number}`;
+
+                                  return (
+                                    <div
+                                      id={anchorId}
+                                      key={`${source.document_id}-${source.chunk_id}-${source.source_number}`}
+                                    >
+                                      <SourcePreview
+                                        citation={source}
+                                        token={token}
+                                      />
+                                    </div>
+                                  );
+                                }
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      {/* MODEL + SAO CHÉP */}
+
+                      <div className="kd-chat__answer-footer">
+                        <span className="kd-chat__model">
+                          {turn.model
+                            ? `Model: ${turn.model}`
+                            : ""}
+                        </span>
+
+                        <button
+                          type="button"
+                          className="kd-chat__copy-button"
+                          onClick={() =>
+                            void copyAnswer(turn)
+                          }
+                        >
+                          {copiedId === turn.id
+                            ? "✓ Đã sao chép"
+                            : "Sao chép"}
+                        </button>
+                      </div>
+                    </article>
+                  )}
+
+                  {/* AI ĐANG TRẢ LỜI */}
+
+                  {pendingTurnId === turn.id &&
+                    turn.answer === undefined &&
+                    !turn.error && (
+                      <div
+                        className="kd-chat__thinking"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <span className="kd-chat__sparkle">
+                          ✦
+                        </span>
+
+                        <span>
+                          Đang tìm thông tin trong tài liệu
+                        </span>
+
+                        <span className="kd-chat__thinking-dots">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      </div>
+                    )}
+
+                  {/* LỖI GỬI CÂU HỎI */}
+
+                  {turn.error && (
+                    <div
+                      className="kd-chat__error-message"
+                      role="alert"
+                    >
+                      <p>{turn.error}</p>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          prepareRetry(turn)
+                        }
+                      >
+                        Điền lại câu hỏi
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </div>
+
+          {/* ======================================= */}
+          {/* FORM NHẬP CÂU HỎI */}
+          {/* ======================================= */}
+
+          <form
+            className="kd-chat__composer"
+            onSubmit={handleSubmit}
+          >
+            <div className="kd-chat__document-field">
+              <label htmlFor="kd-document-id">
+                Mã tài liệu
+              </label>
+
+              <input
+                id="kd-document-id"
+                type="number"
+                min="1"
+                step="1"
+                value={documentId}
+                onChange={(event) =>
+                  setDocumentId(event.target.value)
+                }
+                disabled={
+                  isSending ||
+                  isHistoryLoading ||
+                  isSessionLoading
+                }
+              />
+
+              <span className="kd-chat__document-hint">
+                Tạm dùng mã ID để kiểm thử
+              </span>
+            </div>
+
+            <label
+              className="kd-chat__question-label"
+              htmlFor="kd-question"
+            >
+              Câu hỏi của bạn
+            </label>
+
+            <textarea
+              id="kd-question"
+              rows={3}
+              maxLength={1000}
+              value={question}
+              onChange={(event) =>
+                setQuestion(event.target.value)
+              }
+              onKeyDown={handleKeyDown}
+              placeholder="Ví dụ: Làm thế nào để truy cập tài liệu từ điện thoại?"
+              disabled={isNavigationDisabled}
+            />
+
+            {formError && (
+              <p
+                className="kd-chat__form-error"
                 role="alert"
               >
-                <p>{turn.error}</p>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    prepareRetry(turn)
-                  }
-                >
-                  Điền lại câu hỏi
-                </button>
-              </div>
+                {formError}
+              </p>
             )}
-          </div>
-        ))}
+
+            <div className="kd-chat__composer-footer">
+              <div className="kd-chat__keyboard-hint">
+                <span>
+                  {question.length}/1000 ký tự
+                </span>
+
+                <span>
+                  Enter để gửi · Shift + Enter xuống dòng
+                </span>
+              </div>
+
+              <button
+                className="kd-chat__send-button"
+                type="submit"
+                disabled={
+                  isNavigationDisabled ||
+                  !question.trim()
+                }
+              >
+                {isSending
+                  ? "Đang gửi..."
+                  : "Gửi câu hỏi"}
+
+                <span aria-hidden="true">➤</span>
+              </button>
+            </div>
+
+            <p className="kd-chat__disclaimer">
+              Lịch sử được lưu theo tài khoản.
+              Quyền truy cập tài liệu được kiểm tra
+              trên backend.
+            </p>
+          </form>
+        </div>
       </div>
-
-      {/* ============================================= */}
-      {/* KHUNG NHẬP CÂU HỎI */}
-      {/* ============================================= */}
-
-      <form
-        className="kd-chat__composer"
-        onSubmit={handleSubmit}
-      >
-        {/* Mã tài liệu */}
-
-        <div className="kd-chat__document-field">
-          <label htmlFor="kd-document-id">
-            Mã tài liệu
-          </label>
-
-          <input
-            id="kd-document-id"
-            type="number"
-            min="1"
-            step="1"
-            value={documentId}
-            onChange={(event) =>
-              setDocumentId(event.target.value)
-            }
-            disabled={isSending}
-          />
-
-          <span className="kd-chat__document-hint">
-            Tạm dùng mã ID để kiểm thử
-          </span>
-        </div>
-
-        {/* Câu hỏi */}
-
-        <label
-          className="kd-chat__question-label"
-          htmlFor="kd-question"
-        >
-          Câu hỏi của bạn
-        </label>
-
-        <textarea
-          id="kd-question"
-          rows={3}
-          maxLength={1000}
-          value={question}
-          onChange={(event) =>
-            setQuestion(event.target.value)
-          }
-          onKeyDown={handleKeyDown}
-          placeholder="Ví dụ: Làm thế nào để truy cập tài liệu từ điện thoại?"
-          disabled={isSending}
-        />
-
-        {/* Lỗi form */}
-
-        {formError && (
-          <p
-            className="kd-chat__form-error"
-            role="alert"
-          >
-            {formError}
-          </p>
-        )}
-
-        {/* Nút gửi */}
-
-        <div className="kd-chat__composer-footer">
-          <div className="kd-chat__keyboard-hint">
-            <span>
-              {question.length}/1000 ký tự
-            </span>
-
-            <span>
-              Enter để gửi · Shift + Enter xuống dòng
-            </span>
-          </div>
-
-          <button
-            className="kd-chat__send-button"
-            type="submit"
-            disabled={
-              isSending ||
-              !question.trim()
-            }
-          >
-            {isSending
-              ? "Đang gửi..."
-              : "Gửi câu hỏi"}
-
-            <span aria-hidden="true">
-              ➤
-            </span>
-          </button>
-        </div>
-
-        {/* Lưu ý */}
-
-        <p className="kd-chat__disclaimer">
-          Quyền truy cập tài liệu được kiểm tra
-          trên backend. Câu trả lời AI cần được
-          đối chiếu với nguồn khi cần thiết.
-        </p>
-      </form>
     </section>
   );
 }

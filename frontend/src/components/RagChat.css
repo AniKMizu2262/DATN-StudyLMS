@@ -915,3 +915,208 @@
     outline: 2px solid #7568e8;
   }
 }
+
+/* ======================================================
+   [14] DAY 17 - BỐ CỤC LỊCH SỬ HỘI THOẠI
+   Sidebar bên trái, khung chat bên phải
+   ====================================================== */
+
+/* [14.1] Chia hai cột */
+
+.kd-chat__workspace {
+  display: grid;
+  grid-template-columns: 235px minmax(0, 1fr);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* [14.2] Sidebar lịch sử */
+
+.kd-chat__history {
+  min-width: 0;
+  padding: 16px 12px;
+
+  border-right: 1px solid #e4e8f2;
+  background: #f8f9ff;
+}
+
+/* [14.3] Header sidebar */
+
+.kd-chat__history-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.kd-chat__history-header h3 {
+  margin: 0;
+  color: #182642;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* [14.4] Nút tạo chat mới */
+
+.kd-chat__new-chat {
+  width: 100%;
+  padding: 10px 12px;
+
+  border: 1px solid #7568e8;
+  border-radius: 9px;
+
+  background: #7568e8;
+  color: #ffffff;
+
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kd-chat__new-chat:hover:not(:disabled) {
+  background: #6252d0;
+}
+
+.kd-chat__new-chat:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* [14.5] Danh sách phiên */
+
+.kd-chat__history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+/* [14.6] Một phiên hội thoại */
+
+.kd-chat__history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  width: 100%;
+  padding: 11px 12px;
+
+  border: 1px solid transparent;
+  border-radius: 9px;
+
+  background: transparent;
+  color: #253353;
+
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kd-chat__history-item:hover:not(:disabled) {
+  background: #f0efff;
+}
+
+.kd-chat__history-item--active {
+  border-color: #dedafb;
+  background: #ebe8ff;
+}
+
+.kd-chat__history-item:disabled {
+  cursor: default;
+}
+
+/* [14.7] Tiêu đề phiên */
+
+.kd-chat__history-title {
+  overflow: hidden;
+  color: #253353;
+
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* [14.8] Mã phiên */
+
+.kd-chat__history-id {
+  color: #8590a5;
+  font-size: 10px;
+}
+
+/* [14.9] Trạng thái và lỗi lịch sử */
+
+.kd-chat__history-muted {
+  margin: 12px 4px;
+  color: #8792a7;
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.kd-chat__history-error {
+  margin: 10px 0;
+  padding: 10px;
+
+  border: 1px solid #f1cccc;
+  border-radius: 8px;
+
+  background: #fff7f7;
+  color: #b73636;
+
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* [14.10] Khung hội thoại bên phải */
+
+.kd-chat__conversation {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+  min-height: 0;
+}
+
+/* [14.11] Focus để dễ dùng bàn phím */
+
+.kd-chat__new-chat:focus-visible,
+.kd-chat__history-item:focus-visible {
+  outline: 2px solid #7568e8;
+  outline-offset: 2px;
+}
+
+/* ======================================================
+   [15] RESPONSIVE LỊCH SỬ
+   ====================================================== */
+
+@media (max-width: 800px) {
+  .kd-chat__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kd-chat__history {
+    padding: 12px;
+
+    border-right: 0;
+    border-bottom: 1px solid #e4e8f2;
+  }
+
+  .kd-chat__history-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .kd-chat__new-chat {
+    width: auto;
+  }
+
+  .kd-chat__history-list {
+    max-height: 150px;
+  }
+}

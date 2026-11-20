@@ -12,6 +12,11 @@ const documentRoutes = require("./routes/document.routes");
 // [DAY13] API hỏi đáp RAG
 const createRagRouter = require("./routes/rag.routes");
 
+
+
+// [DAY 17] Router quản lý lịch sử hội thoại AI
+const createChatRouter = require("./routes/chat.routes");
+
 // Middleware JWT hiện có của Kdocument
 const verifyToken = require("./middleware/auth.middleware");
 
@@ -60,6 +65,16 @@ app.use("/api/subjects", subjectRoutes);
 app.use("/api/documents", documentRoutes);
 // [DAY13] Đăng ký API RAG có xác thực JWT
 app.use("/api/rag", createRagRouter(verifyToken));
+
+// ======================================================
+// [DAY 17] API LỊCH SỬ HỘI THOẠI
+// ======================================================
+
+
+
+
+// API quản lý phiên và lịch sử hội thoại
+app.use("/api/chat", createChatRouter(verifyToken));
 
 // Khởi chạy server
 app.listen(PORT, () => {
