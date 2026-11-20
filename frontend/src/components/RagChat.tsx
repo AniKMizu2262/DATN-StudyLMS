@@ -16,11 +16,11 @@ import SourcePreview from "./SourcePreview";
 import "./RagChat.css";
 
 // ======================================================
-// KDOCUMENT - DAY 16
-// GIAO DIỆN HỘI THOẠI AI + CITATION VIEWER
+// KDOCUMENT - RAG CHAT
+// HỘI THOẠI AI + TRÍCH DẪN TƯƠNG TÁC
 // ======================================================
 
-// [01] Thông tin nguồn trích dẫn
+// [01] THÔNG TIN NGUỒN TRÍCH DẪN
 interface Citation {
   source_number: number;
   document_id: number;
@@ -29,7 +29,7 @@ interface Citation {
   score: number;
 }
 
-// [02] Dữ liệu phản hồi từ RAG API
+// [02] DỮ LIỆU API RAG
 interface RagResponse {
   success: boolean;
   message?: string;
@@ -41,7 +41,7 @@ interface RagResponse {
   };
 }
 
-// [03] Một lượt hỏi đáp trong giao diện
+// [03] MỘT LƯỢT HỘI THOẠI
 interface ChatTurn {
   id: number;
   documentId: number;
@@ -52,10 +52,42 @@ interface ChatTurn {
   error?: string;
 }
 
-// [04] Props của RagChat
+// [04] PROPS COMPONENT
 interface RagChatProps {
   token: string;
 }
+
+// ======================================================
+// [05] CHUYỂN NHÃN TRÍCH DẪN THÀNH MARKDOWN LINK
+// Chỉ chuyển nguồn có thật trong dữ liệu backend.
+// Không xử lý lại nhãn đã có liên kết Markdown.
+// ======================================================
+
+const linkifyCitations = (
+  answer: string,
+  citations: Citation[],
+  turnId: number
+): string => {
+  const validSources = new Set(
+    citations.map((citation) => citation.source_number)
+  );
+
+  return answer.replace(
+    /\[NGUỒN\s+(\d+)\](?!\()/gi,
+    (original, value: string) => {
+      const sourceNumber = Number(value);
+
+      if (!validSources.has(sourceNumber)) {
+        return original;
+      }
+
+      const anchorId =
+        `kd-source-${turnId}-${sourceNumber}`;
+
+      return `[NGUỒN ${sourceNumber}](#${anchorId})`;
+    }
+  );
+};
 
 // ======================================================
 // COMPONENT CHÍNH
@@ -63,12 +95,11 @@ interface RagChatProps {
 
 export default function RagChat({ token }: RagChatProps) {
   // ----------------------------------------------------
-  // [05] QUẢN LÝ STATE
+  // [06] QUẢN LÝ STATE
   // ----------------------------------------------------
 
   const [documentId, setDocumentId] = useState("9");
   const [question, setQuestion] = useState("");
-
   const [turns, setTurns] = useState<ChatTurn[]>([]);
 
   const [isSending, setIsSending] = useState(false);
@@ -79,13 +110,11 @@ export default function RagChat({ token }: RagChatProps) {
   );
 
   // ----------------------------------------------------
-  // [06] REFS
+  // [07] REFS
   // ----------------------------------------------------
 
   const messagesRef = useRef<HTMLDivElement>(null);
-
   const nextTurnId = useRef(1);
-
   const requestInProgress = useRef(false);
 
   const pendingTurnId = isSending
@@ -93,7 +122,7 @@ export default function RagChat({ token }: RagChatProps) {
     : undefined;
 
   // ----------------------------------------------------
-  // [07] TỰ CUỘN XUỐNG KHI CÓ TIN NHẮN
+  // [08] TỰ CUỘN KHI CÓ TIN NHẮN MỚI
   // ----------------------------------------------------
 
   useEffect(() => {
@@ -108,17 +137,68 @@ export default function RagChat({ token }: RagChatProps) {
   }, [turns, isSending]);
 
   // ----------------------------------------------------
-  // [08] GỬI CÂU HỎI ĐẾN BACKEND RAG
+  // [09] ĐIỀU HƯỚNG ĐẾN NGUỒN TRÍCH DẪN
+  // ----------------------------------------------------
+
+  const jumpToCitation = (anchorId: string) => {
+    // [09.1] Tìm đúng khung nguồn theo ID.
+    const target = document.getElementById(anchorId);
+
+    if (!target) {
+      console.warn(
+        "[Kdocument] Không tìm thấy nguồn:",
+        anchorId
+      );
+      return;
+    }
+
+    // [09.2] Tìm nút mở SourcePreview.
+    const trigger =
+      target.querySelector<HTMLButtonElement>(
+        ".kd-source-preview__trigger"
+      );
+
+    // [09.3] Chỉ mở khi nguồn đang thu gọn.
+    if (
+      trigger &&
+      trigger.getAttribute("aria-expanded") === "false" &&
+      !trigger.disabled
+    ) {
+      trigger.click();
+    }
+
+    // [09.4] Cuộn tới đúng nguồn tương ứng.
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    // [09.5] Xóa hiệu ứng cũ để có thể chạy lại.
+    target.classList.remove(
+      "kd-chat__source-highlight"
+    );
+
+    // [09.6] Khởi động lại CSS animation.
+    void target.offsetWidth;
+
+    // [09.7] Làm nổi bật nguồn vừa được chọn.
+    target.classList.add(
+      "kd-chat__source-highlight"
+    );
+  };
+
+  // ----------------------------------------------------
+  // [10] GỬI CÂU HỎI ĐẾN API RAG
   // ----------------------------------------------------
 
   const sendQuestion = async () => {
-    // Không cho gửi nhiều request cùng lúc
+    // Tránh gửi hai request cùng lúc.
     if (requestInProgress.current) return;
 
     const cleanQuestion = question.trim();
     const parsedDocumentId = Number(documentId);
 
-    // Kiểm tra mã tài liệu
+    // Kiểm tra mã tài liệu.
     if (
       !Number.isSafeInteger(parsedDocumentId) ||
       parsedDocumentId <= 0
@@ -127,7 +207,7 @@ export default function RagChat({ token }: RagChatProps) {
       return;
     }
 
-    // Kiểm tra câu hỏi rỗng
+    // Kiểm tra câu hỏi.
     if (!cleanQuestion) {
       setFormError(
         "Vui lòng nhập câu hỏi trước khi gửi."
@@ -135,7 +215,6 @@ export default function RagChat({ token }: RagChatProps) {
       return;
     }
 
-    // Giới hạn độ dài câu hỏi
     if (cleanQuestion.length > 1000) {
       setFormError(
         "Câu hỏi không được vượt quá 1000 ký tự."
@@ -143,10 +222,9 @@ export default function RagChat({ token }: RagChatProps) {
       return;
     }
 
-    // Tạo ID cho lượt hỏi đáp
+    // Tạo lượt chat và hiển thị câu hỏi ngay.
     const turnId = nextTurnId.current++;
 
-    // Hiển thị câu hỏi ngay lập tức
     setTurns((previous) => [
       ...previous,
       {
@@ -156,7 +234,6 @@ export default function RagChat({ token }: RagChatProps) {
       },
     ]);
 
-    // Reset form
     setQuestion("");
     setFormError("");
     setIsSending(true);
@@ -164,7 +241,7 @@ export default function RagChat({ token }: RagChatProps) {
     requestInProgress.current = true;
 
     try {
-      // Gửi request tới API RAG
+      // Gọi API RAG đang có.
       const response = await apiRequest<RagResponse>(
         "/rag/ask",
         {
@@ -179,7 +256,6 @@ export default function RagChat({ token }: RagChatProps) {
 
       const result = response.data;
 
-      // Kiểm tra phản hồi
       if (!response.success || !result) {
         throw new Error(
           response.message ||
@@ -187,7 +263,7 @@ export default function RagChat({ token }: RagChatProps) {
         );
       }
 
-      // Cập nhật câu trả lời vào đúng lượt chat
+      // Gắn câu trả lời vào đúng lượt hỏi.
       setTurns((previous) =>
         previous.map((turn) =>
           turn.id === turnId
@@ -206,7 +282,6 @@ export default function RagChat({ token }: RagChatProps) {
           ? error.message
           : "Không thể gửi câu hỏi. Vui lòng thử lại.";
 
-      // Hiển thị lỗi trong lượt chat tương ứng
       setTurns((previous) =>
         previous.map((turn) =>
           turn.id === turnId
@@ -224,7 +299,7 @@ export default function RagChat({ token }: RagChatProps) {
   };
 
   // ----------------------------------------------------
-  // [09] XỬ LÝ SUBMIT FORM
+  // [11] XỬ LÝ SUBMIT
   // ----------------------------------------------------
 
   const handleSubmit = (
@@ -235,8 +310,7 @@ export default function RagChat({ token }: RagChatProps) {
   };
 
   // ----------------------------------------------------
-  // [10] ENTER ĐỂ GỬI
-  // SHIFT + ENTER ĐỂ XUỐNG DÒNG
+  // [12] ENTER GỬI - SHIFT + ENTER XUỐNG DÒNG
   // ----------------------------------------------------
 
   const handleKeyDown = (
@@ -253,17 +327,14 @@ export default function RagChat({ token }: RagChatProps) {
   };
 
   // ----------------------------------------------------
-  // [11] SAO CHÉP CÂU TRẢ LỜI AI
+  // [13] SAO CHÉP CÂU TRẢ LỜI
   // ----------------------------------------------------
 
   const copyAnswer = async (turn: ChatTurn) => {
     if (!turn.answer) return;
 
     try {
-      await navigator.clipboard.writeText(
-        turn.answer
-      );
-
+      await navigator.clipboard.writeText(turn.answer);
       setCopiedId(turn.id);
     } catch {
       setFormError(
@@ -273,7 +344,7 @@ export default function RagChat({ token }: RagChatProps) {
   };
 
   // ----------------------------------------------------
-  // [12] ĐIỀN LẠI CÂU HỎI KHI GẶP LỖI
+  // [14] ĐIỀN LẠI CÂU HỎI KHI GẶP LỖI
   // ----------------------------------------------------
 
   const prepareRetry = (turn: ChatTurn) => {
@@ -283,7 +354,7 @@ export default function RagChat({ token }: RagChatProps) {
   };
 
   // ====================================================
-  // [13] GIAO DIỆN
+  // [15] GIAO DIỆN
   // ====================================================
 
   return (
@@ -328,7 +399,7 @@ export default function RagChat({ token }: RagChatProps) {
         className="kd-chat__messages"
         ref={messagesRef}
       >
-        {/* Giao diện khi chưa có tin nhắn */}
+        {/* Chưa có tin nhắn */}
 
         {turns.length === 0 && (
           <div className="kd-chat__empty">
@@ -348,7 +419,7 @@ export default function RagChat({ token }: RagChatProps) {
           </div>
         )}
 
-        {/* Hiển thị từng lượt hội thoại */}
+        {/* Danh sách các lượt hỏi đáp */}
 
         {turns.map((turn) => (
           <div
@@ -370,7 +441,7 @@ export default function RagChat({ token }: RagChatProps) {
             </div>
 
             {/* ------------------------------------- */}
-            {/* TIN NHẮN AI */}
+            {/* TIN NHẮN TRẢ LỜI AI */}
             {/* ------------------------------------- */}
 
             {turn.answer !== undefined && (
@@ -383,18 +454,85 @@ export default function RagChat({ token }: RagChatProps) {
                   Kdocument AI
                 </div>
 
-                {/* Hiển thị Markdown */}
+                {/* --------------------------------- */}
+                {/* MARKDOWN + LIÊN KẾT TRÍCH DẪN */}
+                {/* --------------------------------- */}
 
                 <div className="kd-chat__markdown">
                   <Markdown
                     remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ href, children }) => {
+                        // Nhận dạng link nguồn nội bộ.
+                        const match = href?.match(
+                          /^#kd-source-(\d+)-(\d+)$/
+                        );
+
+                        if (match) {
+                          const linkedTurnId = Number(
+                            match[1]
+                          );
+
+                          const sourceNumber = Number(
+                            match[2]
+                          );
+
+                          // Link phải thuộc đúng lượt
+                          // và đúng nguồn backend trả về.
+                          const isValidCitation =
+                            linkedTurnId === turn.id &&
+                            (turn.citations ?? []).some(
+                              (citation) =>
+                                citation.source_number ===
+                                sourceNumber
+                            );
+
+                          if (isValidCitation) {
+                            // Lấy anchor đã kiểm tra.
+                            const anchorId =
+                              match[0].slice(1);
+
+                            return (
+                              <a
+                                href={match[0]}
+                                className="kd-chat__citation-link"
+                                onClick={(event) => {
+                                  event.preventDefault();
+
+                                  jumpToCitation(
+                                    anchorId
+                                  );
+                                }}
+                              >
+                                {children}
+                              </a>
+                            );
+                          }
+                        }
+
+                        // Link Markdown thông thường.
+                        return (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {children}
+                          </a>
+                        );
+                      },
+                    }}
                   >
-                    {turn.answer}
+                    {linkifyCitations(
+                      turn.answer,
+                      turn.citations ?? [],
+                      turn.id
+                    )}
                   </Markdown>
                 </div>
 
                 {/* --------------------------------- */}
-                {/* CITATION VIEWER - DAY 16 */}
+                {/* DANH SÁCH NGUỒN THAM KHẢO */}
                 {/* --------------------------------- */}
 
                 {turn.citations &&
@@ -406,13 +544,22 @@ export default function RagChat({ token }: RagChatProps) {
 
                       <div className="kd-chat__source-list">
                         {turn.citations.map(
-                          (source, index) => (
-                            <SourcePreview
-                              key={`${source.document_id}-${source.chunk_id}-${index}`}
-                              citation={source}
-                              token={token}
-                            />
-                          )
+                          (source) => {
+                            const anchorId =
+                              `kd-source-${turn.id}-${source.source_number}`;
+
+                            return (
+                              <div
+                                id={anchorId}
+                                key={`${source.document_id}-${source.chunk_id}-${source.source_number}`}
+                              >
+                                <SourcePreview
+                                  citation={source}
+                                  token={token}
+                                />
+                              </div>
+                            );
+                          }
                         )}
                       </div>
                     </div>
@@ -445,7 +592,7 @@ export default function RagChat({ token }: RagChatProps) {
             )}
 
             {/* ------------------------------------- */}
-            {/* TRẠNG THÁI AI ĐANG XỬ LÝ */}
+            {/* AI ĐANG XỬ LÝ */}
             {/* ------------------------------------- */}
 
             {pendingTurnId === turn.id &&
@@ -473,7 +620,7 @@ export default function RagChat({ token }: RagChatProps) {
               )}
 
             {/* ------------------------------------- */}
-            {/* HIỂN THỊ LỖI */}
+            {/* THÔNG BÁO LỖI */}
             {/* ------------------------------------- */}
 
             {turn.error && (
@@ -498,16 +645,14 @@ export default function RagChat({ token }: RagChatProps) {
       </div>
 
       {/* ============================================= */}
-      {/* KHUNG SOẠN CÂU HỎI */}
+      {/* KHUNG NHẬP CÂU HỎI */}
       {/* ============================================= */}
 
       <form
         className="kd-chat__composer"
         onSubmit={handleSubmit}
       >
-        {/* ----------------------------------------- */}
-        {/* MÃ TÀI LIỆU */}
-        {/* ----------------------------------------- */}
+        {/* Mã tài liệu */}
 
         <div className="kd-chat__document-field">
           <label htmlFor="kd-document-id">
@@ -531,9 +676,7 @@ export default function RagChat({ token }: RagChatProps) {
           </span>
         </div>
 
-        {/* ----------------------------------------- */}
-        {/* NHẬP CÂU HỎI */}
-        {/* ----------------------------------------- */}
+        {/* Câu hỏi */}
 
         <label
           className="kd-chat__question-label"
@@ -555,7 +698,7 @@ export default function RagChat({ token }: RagChatProps) {
           disabled={isSending}
         />
 
-        {/* Lỗi nhập liệu */}
+        {/* Lỗi form */}
 
         {formError && (
           <p
@@ -566,9 +709,7 @@ export default function RagChat({ token }: RagChatProps) {
           </p>
         )}
 
-        {/* ----------------------------------------- */}
-        {/* NÚT GỬI */}
-        {/* ----------------------------------------- */}
+        {/* Nút gửi */}
 
         <div className="kd-chat__composer-footer">
           <div className="kd-chat__keyboard-hint">
@@ -599,9 +740,7 @@ export default function RagChat({ token }: RagChatProps) {
           </button>
         </div>
 
-        {/* ----------------------------------------- */}
-        {/* LƯU Ý */}
-        {/* ----------------------------------------- */}
+        {/* Lưu ý */}
 
         <p className="kd-chat__disclaimer">
           Quyền truy cập tài liệu được kiểm tra

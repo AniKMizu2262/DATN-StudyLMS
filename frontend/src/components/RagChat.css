@@ -1,34 +1,64 @@
 
-/* ===================================================
-   KDOCUMENT - DAY 16
-   Giao diện hội thoại AI
-   Màu chủ đạo: Navy + Purple theo Google Stitch
-   =================================================== */
+/* ======================================================
+   KDOCUMENT - RAG CHAT
+   GIAO DIỆN HỘI THOẠI AI
+
+   Màu chủ đạo:
+   Navy   : #182642
+   Purple : #7568e8
+
+   CẤU TRÚC:
+   [01] Khung chat
+   [02] Header
+   [03] Vùng hội thoại
+   [04] Tin nhắn người dùng
+   [05] Tin nhắn AI
+   [06] Markdown
+   [07] Nguồn trích dẫn
+   [08] Chân câu trả lời
+   [09] Trạng thái xử lý
+   [10] Thông báo lỗi
+   [11] Khung nhập câu hỏi
+   [12] Animation
+   [13] Responsive
+   ====================================================== */
+
+/* ======================================================
+   [01] KHUNG CHAT CHÍNH
+   ====================================================== */
 
 .kd-chat {
-  width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 1180px;
   min-height: 650px;
-  background: #ffffff;
+  margin: 0 auto;
+
+  overflow: hidden;
   border: 1px solid #e0e6f0;
   border-radius: 18px;
-  overflow: hidden;
+
+  background: #ffffff;
   color: #182642;
 }
 
-/* [01] Header */
+/* ======================================================
+   [02] HEADER
+   Logo, tên trợ lý, mô tả và nhãn RAG
+   ====================================================== */
 
 .kd-chat__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+
   padding: 24px 28px;
   border-bottom: 1px solid #e8edf5;
 }
+
+/* [02.1] Nhóm thương hiệu */
 
 .kd-chat__brand {
   display: flex;
@@ -36,16 +66,21 @@
   gap: 15px;
 }
 
+/* [02.2] Kiểu chung cho biểu tượng */
+
 .kd-chat__brand-icon,
 .kd-chat__empty-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+
+  border-radius: 14px;
   background: #efedff;
   color: #6757da;
-  border-radius: 14px;
   font-size: 26px;
 }
+
+/* [02.3] Biểu tượng trợ lý */
 
 .kd-chat__brand-icon {
   width: 48px;
@@ -53,20 +88,28 @@
   flex-shrink: 0;
 }
 
+/* [02.4] Nhãn giới thiệu */
+
 .kd-chat__eyebrow {
   margin: 0 0 5px;
+  color: #7365dc;
+
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 1.2px;
-  color: #7365dc;
 }
+
+/* [02.5] Tiêu đề */
 
 .kd-chat__header h2 {
   margin: 0;
+  color: #182642;
+
   font-size: 23px;
   line-height: 1.3;
-  color: #182642;
 }
+
+/* [02.6] Mô tả */
 
 .kd-chat__subtitle {
   margin: 6px 0 0;
@@ -74,37 +117,53 @@
   font-size: 13px;
 }
 
+/* [02.7] Nhãn RAG */
+
 .kd-chat__badge {
   padding: 7px 13px;
   border-radius: 100px;
-  color: #5f4ed0;
+
   background: #efedff;
+  color: #5f4ed0;
+
   font-size: 12px;
   font-weight: 800;
 }
 
-/* [02] Vùng nội dung chat */
+/* ======================================================
+   [03] VÙNG HỘI THOẠI
+   Danh sách tin nhắn và màn hình trống
+   ====================================================== */
+
+/* [03.1] Khung cuộn tin nhắn */
 
 .kd-chat__messages {
   flex: 1;
-  min-height: 340px;
   height: min(54vh, 570px);
-  overflow-y: auto;
+  min-height: 340px;
+
   padding: 26px 28px;
+  overflow-y: auto;
+
   background: #fafbff;
   scroll-behavior: smooth;
 }
 
+/* [03.2] Trạng thái chưa có tin nhắn */
+
 .kd-chat__empty {
-  height: 100%;
-  min-height: 250px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
+
+  height: 100%;
+  min-height: 250px;
   text-align: center;
 }
+
+/* [03.3] Biểu tượng màn hình trống */
 
 .kd-chat__empty-icon {
   width: 64px;
@@ -112,20 +171,29 @@
   font-size: 36px;
 }
 
+/* [03.4] Tiêu đề màn hình trống */
+
 .kd-chat__empty h3 {
   margin: 4px 0 0;
   font-size: 21px;
 }
 
+/* [03.5] Nội dung hướng dẫn */
+
 .kd-chat__empty p {
   max-width: 420px;
   margin: 0;
+
   color: #7d879b;
   font-size: 14px;
   line-height: 1.7;
 }
 
-/* [03] Tin nhắn người dùng */
+/* ======================================================
+   [04] TIN NHẮN NGƯỜI DÙNG
+   ====================================================== */
+
+/* [04.1] Một lượt hỏi đáp */
 
 .kd-chat__turn {
   display: flex;
@@ -134,69 +202,101 @@
   margin-bottom: 26px;
 }
 
+/* [04.2] Căn tin nhắn sang phải */
+
 .kd-chat__user-row {
   display: flex;
   justify-content: flex-end;
 }
 
+/* [04.3] Bong bóng câu hỏi */
+
 .kd-chat__user-message {
   max-width: 78%;
   padding: 14px 17px;
+
   border-radius: 17px 17px 5px 17px;
   background: #ebe8ff;
   color: #28206d;
+
   animation: kd-chat-appear 180ms ease-out;
 }
+
+/* [04.4] Nhãn người gửi */
 
 .kd-chat__message-label {
   display: block;
   margin-bottom: 7px;
+
   color: #6255b8;
   font-size: 11px;
   font-weight: 800;
 }
 
+/* [04.5] Nội dung câu hỏi */
+
 .kd-chat__user-message p {
   margin: 0;
-  line-height: 1.65;
+
   font-size: 14px;
+  line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-/* [04] Tin nhắn AI */
+/* ======================================================
+   [05] TIN NHẮN AI
+   ====================================================== */
+
+/* [05.1] Khung trả lời */
 
 .kd-chat__assistant-message {
   width: 100%;
   padding: 20px 22px;
+
   border: 1px solid #e1e7f0;
   border-radius: 15px;
+
   background: #ffffff;
+
   animation: kd-chat-appear 220ms ease-out;
 }
+
+/* [05.2] Tên trợ lý */
 
 .kd-chat__assistant-name {
   display: flex;
   align-items: center;
   gap: 8px;
+
   margin-bottom: 14px;
+
   font-size: 13px;
   font-weight: 800;
 }
+
+/* [05.3] Biểu tượng AI */
 
 .kd-chat__sparkle {
   color: #7568e8;
   font-size: 19px;
 }
 
-/* [05] Nội dung Markdown */
+/* ======================================================
+   [06] MARKDOWN
+   Văn bản, tiêu đề, danh sách, link, code, bảng
+   ====================================================== */
+
+/* [06.1] Nội dung Markdown */
 
 .kd-chat__markdown {
+  color: #243453;
   font-size: 14px;
   line-height: 1.85;
   overflow-wrap: anywhere;
-  color: #243453;
 }
+
+/* [06.2] Đoạn văn */
 
 .kd-chat__markdown p {
   margin: 0 0 14px;
@@ -206,13 +306,15 @@
   margin-bottom: 0;
 }
 
+/* [06.3] Các cấp tiêu đề */
+
 .kd-chat__markdown h1,
 .kd-chat__markdown h2,
 .kd-chat__markdown h3,
 .kd-chat__markdown h4 {
+  margin: 16px 0 8px;
   color: #182642;
   line-height: 1.4;
-  margin: 16px 0 8px;
 }
 
 .kd-chat__markdown h1 {
@@ -227,51 +329,70 @@
   font-size: 16px;
 }
 
+/* [06.4] Danh sách */
+
 .kd-chat__markdown ul,
 .kd-chat__markdown ol {
-  padding-left: 24px;
   margin: 10px 0 15px;
+  padding-left: 24px;
 }
 
 .kd-chat__markdown li {
   margin-bottom: 6px;
 }
 
+/* [06.5] Chữ in đậm */
+
 .kd-chat__markdown strong {
   font-weight: 750;
 }
+
+/* [06.6] Liên kết thông thường */
 
 .kd-chat__markdown a {
   color: #6254d8;
   text-decoration: underline;
 }
 
+/* [06.7] Khối code */
+
 .kd-chat__markdown pre {
-  overflow-x: auto;
   padding: 14px;
+  overflow-x: auto;
+
   border-radius: 10px;
   background: #182642;
   color: #f4f6ff;
 }
 
+/* [06.8] Font code */
+
 .kd-chat__markdown code {
   font-size: 12px;
 }
 
+/* [06.9] Code trong dòng văn bản */
+
 .kd-chat__markdown :not(pre) > code {
   padding: 2px 5px;
+
   border-radius: 5px;
   background: #f0f1fb;
   color: #5546b8;
 }
 
+/* [06.10] Bảng Markdown */
+
 .kd-chat__markdown table {
-  border-collapse: collapse;
-  width: 100%;
   display: block;
-  overflow-x: auto;
+  width: 100%;
   margin: 12px 0;
+
+  border-collapse: collapse;
+  overflow-x: auto;
 }
+
+/* [06.11] Các ô bảng */
 
 .kd-chat__markdown th,
 .kd-chat__markdown td {
@@ -280,11 +401,18 @@
   text-align: left;
 }
 
+/* [06.12] Ô tiêu đề bảng */
+
 .kd-chat__markdown th {
   background: #f4f5fc;
 }
 
-/* [06] Nguồn trích dẫn */
+/* ======================================================
+   [07] NGUỒN TRÍCH DẪN
+   Citation Viewer + liên kết + hiệu ứng highlight
+   ====================================================== */
+
+/* [07.1] Khu vực nguồn tham khảo */
 
 .kd-chat__sources {
   margin-top: 17px;
@@ -292,10 +420,14 @@
   border-top: 1px solid #e6eaf2;
 }
 
+/* [07.2] Tiêu đề nguồn tham khảo */
+
 .kd-chat__sources h4 {
   margin: 0 0 10px;
   font-size: 12px;
 }
+
+/* [07.3] Danh sách nguồn */
 
 .kd-chat__source-list {
   display: flex;
@@ -303,15 +435,20 @@
   gap: 8px;
 }
 
+/* [07.4] Kiểu nguồn cũ - giữ tương thích */
+
 .kd-chat__source {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+
   padding: 10px 12px;
+
   border-radius: 9px;
   background: #f0efff;
   color: #65718b;
+
   font-size: 12px;
 }
 
@@ -320,14 +457,59 @@
   font-weight: 800;
 }
 
+/* [07.5] Link nguồn bên trong câu trả lời AI */
+
+.kd-chat__markdown .kd-chat__citation-link {
+  color: #6758de;
+  font-weight: 700;
+
+  text-decoration: underline;
+  text-decoration-color: #bcb5fa;
+  text-underline-offset: 3px;
+
+  cursor: pointer;
+}
+
+/* [07.6] Hover link nguồn */
+
+.kd-chat__markdown .kd-chat__citation-link:hover {
+  color: #4e3cbd;
+  text-decoration-color: currentColor;
+}
+
+/* [07.7] Điều hướng bằng bàn phím */
+
+.kd-chat__markdown .kd-chat__citation-link:focus-visible {
+  outline: 2px solid #7568e8;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* [07.8] Làm nổi bật nguồn khi được chọn */
+
+.kd-chat__source-highlight {
+  border-radius: 10px;
+  animation: kd-citation-flash 1.6s ease-out;
+}
+
+/* ======================================================
+   [08] CHÂN CÂU TRẢ LỜI
+   Tên model và nút sao chép
+   ====================================================== */
+
+/* [08.1] Thanh cuối câu trả lời */
+
 .kd-chat__answer-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
+
   margin-top: 14px;
 }
+
+/* [08.2] Tên model AI */
 
 .kd-chat__model {
   color: #8792a7;
@@ -335,35 +517,52 @@
   overflow-wrap: anywhere;
 }
 
+/* [08.3] Nút sao chép */
+
 .kd-chat__copy-button {
+  padding: 7px 11px;
+
   border: 1px solid #dfe3ee;
   border-radius: 8px;
-  padding: 7px 11px;
+
   background: #ffffff;
   color: #5346be;
+
   font-size: 12px;
   font-weight: 650;
   cursor: pointer;
 }
 
+/* [08.4] Hover nút sao chép */
+
 .kd-chat__copy-button:hover {
   background: #f2f0ff;
 }
 
-/* [07] Hiệu ứng AI đang xử lý */
+/* ======================================================
+   [09] TRẠNG THÁI AI ĐANG XỬ LÝ
+   ====================================================== */
+
+/* [09.1] Hộp thông báo */
 
 .kd-chat__thinking {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
   gap: 9px;
+
   padding: 14px 17px;
+
   border: 1px solid #e3e6f4;
   border-radius: 13px;
-  background: white;
+
+  background: #ffffff;
   color: #77819a;
+
   font-size: 13px;
 }
+
+/* [09.2] Nhóm dấu chấm */
 
 .kd-chat__thinking-dots {
   display: inline-flex;
@@ -371,13 +570,19 @@
   gap: 4px;
 }
 
+/* [09.3] Từng dấu chấm */
+
 .kd-chat__thinking-dots i {
   width: 5px;
   height: 5px;
-  background: #7568e8;
+
   border-radius: 50%;
+  background: #7568e8;
+
   animation: kd-chat-pulse 1.1s ease-in-out infinite;
 }
+
+/* [09.4] Hiệu ứng lệch nhịp */
 
 .kd-chat__thinking-dots i:nth-child(2) {
   animation-delay: 150ms;
@@ -387,30 +592,46 @@
   animation-delay: 300ms;
 }
 
-/* [08] Báo lỗi */
+/* ======================================================
+   [10] THÔNG BÁO LỖI
+   Lỗi API và lỗi nhập liệu
+   ====================================================== */
+
+/* [10.1] Khung lỗi hội thoại */
 
 .kd-chat__error-message {
   align-self: flex-start;
   padding: 13px 16px;
+
   border: 1px solid #ffd5d5;
   border-radius: 12px;
+
   background: #fff6f6;
   color: #b73636;
+
   font-size: 13px;
 }
+
+/* [10.2] Nội dung lỗi */
 
 .kd-chat__error-message p {
   margin: 0 0 9px;
 }
 
+/* [10.3] Nút điền lại câu hỏi */
+
 .kd-chat__error-message button {
-  border: 0;
   padding: 0;
+  border: 0;
+
   background: transparent;
   color: #a12d2d;
+
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* [10.4] Lỗi form nhập */
 
 .kd-chat__form-error {
   margin: 9px 0 0;
@@ -418,13 +639,19 @@
   font-size: 12px;
 }
 
-/* [09] Khung soạn câu hỏi */
+/* ======================================================
+   [11] KHUNG NHẬP CÂU HỎI
+   ====================================================== */
+
+/* [11.1] Khu vực soạn thảo */
 
 .kd-chat__composer {
   padding: 20px 26px 16px;
   border-top: 1px solid #e5eaf3;
-  background: white;
+  background: #ffffff;
 }
+
+/* [11.2] Dòng nhập mã tài liệu */
 
 .kd-chat__document-field {
   display: flex;
@@ -433,6 +660,8 @@
   margin-bottom: 14px;
 }
 
+/* [11.3] Nhãn input */
+
 .kd-chat__document-field label,
 .kd-chat__question-label {
   color: #182642;
@@ -440,39 +669,54 @@
   font-weight: 750;
 }
 
+/* [11.4] Ô mã tài liệu */
+
 .kd-chat__document-field input {
   width: 85px;
   padding: 9px 10px;
+
   border: 1px solid #dce2ee;
   border-radius: 9px;
+
   font: inherit;
   font-size: 13px;
 }
+
+/* [11.5] Gợi ý mã tài liệu */
 
 .kd-chat__document-hint {
   color: #8994a8;
   font-size: 11px;
 }
 
+/* [11.6] Nhãn câu hỏi */
+
 .kd-chat__question-label {
   display: block;
   margin-bottom: 9px;
 }
 
+/* [11.7] Ô nhập nội dung câu hỏi */
+
 .kd-chat__composer textarea {
+  box-sizing: border-box;
   width: 100%;
   min-height: 80px;
-  box-sizing: border-box;
+
+  padding: 14px;
   resize: vertical;
+
   border: 1px solid #dce2ee;
   border-radius: 12px;
-  padding: 14px;
+
+  color: #182642;
   font: inherit;
   font-size: 14px;
   line-height: 1.6;
-  color: #182642;
   outline: none;
 }
+
+/* [11.8] Focus vào ô nhập */
 
 .kd-chat__composer textarea:focus,
 .kd-chat__document-field input:focus {
@@ -480,61 +724,89 @@
   box-shadow: 0 0 0 3px rgb(117 104 232 / 10%);
 }
 
+/* [11.9] Thanh dưới khung nhập */
+
 .kd-chat__composer-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   margin-top: 10px;
 }
+
+/* [11.10] Gợi ý phím tắt */
 
 .kd-chat__keyboard-hint {
   display: flex;
   flex-direction: column;
   gap: 5px;
+
   color: #8b96aa;
   font-size: 11px;
 }
+
+/* [11.11] Nút gửi câu hỏi */
 
 .kd-chat__send-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
   flex-shrink: 0;
+  gap: 12px;
+
   padding: 11px 18px;
-  background: #6758de;
-  color: white;
+
   border: none;
   border-radius: 10px;
+
+  background: #6758de;
+  color: #ffffff;
+
   font: inherit;
   font-size: 13px;
   font-weight: 750;
+
   cursor: pointer;
-  transition: background 160ms ease, transform 160ms ease;
+
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
 }
+
+/* [11.12] Hover nút gửi */
 
 .kd-chat__send-button:hover:not(:disabled) {
   background: #5545cf;
   transform: translateY(-1px);
 }
 
+/* [11.13] Nút gửi bị vô hiệu hóa */
+
 .kd-chat__send-button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
+/* [11.14] Lưu ý phía dưới */
+
 .kd-chat__disclaimer {
   margin: 14px 0 0;
+
   color: #8994a8;
   font-size: 11px;
   line-height: 1.5;
 }
 
-/* [10] Animation */
+/* ======================================================
+   [12] ANIMATION
+   ====================================================== */
+
+/* [12.1] Dấu chấm khi AI xử lý */
 
 @keyframes kd-chat-pulse {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     opacity: 0.35;
     transform: translateY(0);
   }
@@ -544,6 +816,8 @@
     transform: translateY(-4px);
   }
 }
+
+/* [12.2] Tin nhắn xuất hiện */
 
 @keyframes kd-chat-appear {
   from {
@@ -557,7 +831,25 @@
   }
 }
 
-/* [11] Responsive */
+/* [12.3] Nháy viền nguồn được chọn */
+
+@keyframes kd-citation-flash {
+  0% {
+    box-shadow:
+      0 0 0 4px rgba(117, 104, 232, 0.45);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(117, 104, 232, 0);
+  }
+}
+
+/* ======================================================
+   [13] RESPONSIVE
+   ====================================================== */
+
+/* [13.1] Màn hình nhỏ */
 
 @media (max-width: 640px) {
   .kd-chat {
@@ -609,10 +901,17 @@
   }
 }
 
+/* [13.2] Người dùng hạn chế hiệu ứng chuyển động */
+
 @media (prefers-reduced-motion: reduce) {
   .kd-chat__thinking-dots i,
   .kd-chat__assistant-message,
   .kd-chat__user-message {
     animation: none;
+  }
+
+  .kd-chat__source-highlight {
+    animation: none;
+    outline: 2px solid #7568e8;
   }
 }
