@@ -1,22 +1,27 @@
 
-/* ===========================================
-   KDOCUMENT - CITATION SOURCE PREVIEW
-   =========================================== */
+/* ======================================================
+   KDOCUMENT - CITATION VIEWER + PDF VIEWER
+   ====================================================== */
+
+/* [01] KHUNG NGUỒN */
 
 .kd-source-preview {
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid #e4e1fb;
   border-radius: 10px;
-  overflow: hidden;
   background: #ffffff;
 }
 
+/* [02] NÚT MỞ NGUỒN */
+
 .kd-source-preview__trigger {
-  width: 100%;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  width: 100%;
   padding: 11px 13px;
   border: 0;
   background: #f0efff;
@@ -25,6 +30,7 @@
   font-size: 12px;
   text-align: left;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .kd-source-preview__trigger:hover {
@@ -41,6 +47,8 @@
   opacity: 0.75;
 }
 
+/* [03] NHÃN NGUỒN */
+
 .kd-source-preview__label {
   color: #6252d0;
   font-weight: 800;
@@ -56,6 +64,8 @@
   font-size: 11px;
   font-weight: 700;
 }
+
+/* [04] NỘI DUNG NGUỒN */
 
 .kd-source-preview__body {
   padding: 16px;
@@ -94,10 +104,139 @@
   font-size: 11px;
 }
 
+/* [05] THÔNG BÁO LỖI */
+
 .kd-source-preview__error {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #f1cccc;
+  border-radius: 8px;
+  background: #fff7f7;
   color: #b73636;
   font-size: 12px;
+  line-height: 1.6;
 }
+
+/* ======================================================
+   PDF VIEWER
+   ====================================================== */
+
+/* [06] THANH CÔNG CỤ */
+
+.kd-source-preview__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.kd-source-preview__pdf-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid #7568e8;
+  border-radius: 8px;
+  background: #7568e8;
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.kd-source-preview__pdf-button:hover {
+  border-color: #6252d0;
+  background: #6252d0;
+}
+
+.kd-source-preview__pdf-button:focus-visible {
+  outline: 2px solid #182642;
+  outline-offset: 2px;
+}
+
+.kd-source-preview__pdf-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+/* [07] LIÊN KẾT TAB MỚI */
+
+.kd-source-preview__pdf-link {
+  color: #6758de;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.kd-source-preview__pdf-link:hover {
+  text-decoration: underline;
+}
+
+.kd-source-preview__pdf-link:focus-visible {
+  outline: 2px solid #7568e8;
+  outline-offset: 3px;
+}
+
+/* [08] KHUNG PDF */
+
+.kd-source-preview__pdf-section {
+  width: 100%;
+  min-width: 0;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid #e4e1fb;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+/* [09] HEADER PDF */
+
+.kd-source-preview__pdf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e4e1fb;
+  background: #f0efff;
+  color: #6252d0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* [10] IFRAME PDF */
+
+.kd-source-preview__pdf-frame {
+  display: block;
+  width: 100%;
+  height: 560px;
+  border: 0;
+  background: #f5f6fb;
+}
+
+/* [11] GHI CHÚ PDF */
+
+.kd-source-preview__pdf-note {
+  margin: 0;
+  padding: 11px 14px;
+  border-top: 1px solid #edf0f7;
+  background: #ffffff;
+  color: #8b96aa;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* ======================================================
+   RESPONSIVE
+   ====================================================== */
 
 @media (max-width: 640px) {
   .kd-source-preview__body {
@@ -106,5 +245,23 @@
 
   .kd-source-preview__content {
     padding: 12px;
+    font-size: 12px;
+  }
+
+  .kd-source-preview__toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .kd-source-preview__pdf-button {
+    width: 100%;
+  }
+
+  .kd-source-preview__pdf-frame {
+    height: 420px;
+  }
+
+  .kd-source-preview__pdf-header {
+    padding: 10px 12px;
   }
 }
