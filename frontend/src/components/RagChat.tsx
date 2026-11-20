@@ -6,18 +6,21 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { apiRequest } from "../services/api";
+import SourcePreview from "./SourcePreview";
+
 import "./RagChat.css";
 
 // ======================================================
 // KDOCUMENT - DAY 16
-// Giao diện hội thoại AI
-// Chỉ xử lý hiển thị và gọi API, không xử lý logic RAG.
+// GIAO DIỆN HỘI THOẠI AI + CITATION VIEWER
 // ======================================================
 
+// [01] Thông tin nguồn trích dẫn
 interface Citation {
   source_number: number;
   document_id: number;
@@ -26,6 +29,7 @@ interface Citation {
   score: number;
 }
 
+// [02] Dữ liệu phản hồi từ RAG API
 interface RagResponse {
   success: boolean;
   message?: string;
@@ -37,6 +41,7 @@ interface RagResponse {
   };
 }
 
+// [03] Một lượt hỏi đáp trong giao diện
 interface ChatTurn {
   id: number;
   documentId: number;
@@ -47,47 +52,73 @@ interface ChatTurn {
   error?: string;
 }
 
+// [04] Props của RagChat
 interface RagChatProps {
   token: string;
 }
 
+// ======================================================
+// COMPONENT CHÍNH
+// ======================================================
+
 export default function RagChat({ token }: RagChatProps) {
-  // [01] State giao diện
+  // ----------------------------------------------------
+  // [05] QUẢN LÝ STATE
+  // ----------------------------------------------------
+
   const [documentId, setDocumentId] = useState("9");
   const [question, setQuestion] = useState("");
+
   const [turns, setTurns] = useState<ChatTurn[]>([]);
+
   const [isSending, setIsSending] = useState(false);
   const [formError, setFormError] = useState("");
-  const [copiedId, setCopiedId] = useState<number | null>(null);
 
-  // [02] Refs quản lý cuộn và tránh gửi trùng
+  const [copiedId, setCopiedId] = useState<number | null>(
+    null
+  );
+
+  // ----------------------------------------------------
+  // [06] REFS
+  // ----------------------------------------------------
+
   const messagesRef = useRef<HTMLDivElement>(null);
+
   const nextTurnId = useRef(1);
+
   const requestInProgress = useRef(false);
 
   const pendingTurnId = isSending
     ? turns[turns.length - 1]?.id
     : undefined;
 
-  // [03] Tự cuộn xuống khi có tin nhắn hoặc trạng thái mới
+  // ----------------------------------------------------
+  // [07] TỰ CUỘN XUỐNG KHI CÓ TIN NHẮN
+  // ----------------------------------------------------
+
   useEffect(() => {
     const element = messagesRef.current;
 
-    if (element) {
-      element.scrollTo({
-        top: element.scrollHeight,
-        behavior: "smooth",
-      });
-    }
+    if (!element) return;
+
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: "smooth",
+    });
   }, [turns, isSending]);
 
-  // [04] Gửi câu hỏi đến API RAG đang có
+  // ----------------------------------------------------
+  // [08] GỬI CÂU HỎI ĐẾN BACKEND RAG
+  // ----------------------------------------------------
+
   const sendQuestion = async () => {
+    // Không cho gửi nhiều request cùng lúc
     if (requestInProgress.current) return;
 
     const cleanQuestion = question.trim();
     const parsedDocumentId = Number(documentId);
 
+    // Kiểm tra mã tài liệu
     if (
       !Number.isSafeInteger(parsedDocumentId) ||
       parsedDocumentId <= 0
@@ -96,19 +127,26 @@ export default function RagChat({ token }: RagChatProps) {
       return;
     }
 
+    // Kiểm tra câu hỏi rỗng
     if (!cleanQuestion) {
-      setFormError("Vui lòng nhập câu hỏi trước khi gửi.");
+      setFormError(
+        "Vui lòng nhập câu hỏi trước khi gửi."
+      );
       return;
     }
 
+    // Giới hạn độ dài câu hỏi
     if (cleanQuestion.length > 1000) {
-      setFormError("Câu hỏi không được vượt quá 1000 ký tự.");
+      setFormError(
+        "Câu hỏi không được vượt quá 1000 ký tự."
+      );
       return;
     }
 
-    // Hiển thị câu hỏi ngay, không đợi API trả kết quả.
+    // Tạo ID cho lượt hỏi đáp
     const turnId = nextTurnId.current++;
 
+    // Hiển thị câu hỏi ngay lập tức
     setTurns((previous) => [
       ...previous,
       {
@@ -118,12 +156,15 @@ export default function RagChat({ token }: RagChatProps) {
       },
     ]);
 
+    // Reset form
     setQuestion("");
     setFormError("");
     setIsSending(true);
+
     requestInProgress.current = true;
 
     try {
+      // Gửi request tới API RAG
       const response = await apiRequest<RagResponse>(
         "/rag/ask",
         {
@@ -136,21 +177,25 @@ export default function RagChat({ token }: RagChatProps) {
         }
       );
 
-      if (!response.success || !response.data) {
+      const result = response.data;
+
+      // Kiểm tra phản hồi
+      if (!response.success || !result) {
         throw new Error(
-          response.message || "Không nhận được câu trả lời."
+          response.message ||
+            "Không nhận được câu trả lời."
         );
       }
 
-      // Cập nhật câu trả lời vào đúng lượt hỏi.
+      // Cập nhật câu trả lời vào đúng lượt chat
       setTurns((previous) =>
         previous.map((turn) =>
           turn.id === turnId
             ? {
                 ...turn,
-                answer: response.data!.answer,
-                model: response.data!.model,
-                citations: response.data!.citations,
+                answer: result.answer,
+                model: result.model,
+                citations: result.citations ?? [],
               }
             : turn
         )
@@ -161,10 +206,14 @@ export default function RagChat({ token }: RagChatProps) {
           ? error.message
           : "Không thể gửi câu hỏi. Vui lòng thử lại.";
 
+      // Hiển thị lỗi trong lượt chat tương ứng
       setTurns((previous) =>
         previous.map((turn) =>
           turn.id === turnId
-            ? { ...turn, error: errorMessage }
+            ? {
+                ...turn,
+                error: errorMessage,
+              }
             : turn
         )
       );
@@ -174,13 +223,22 @@ export default function RagChat({ token }: RagChatProps) {
     }
   };
 
-  // [05] Gửi bằng form
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  // ----------------------------------------------------
+  // [09] XỬ LÝ SUBMIT FORM
+  // ----------------------------------------------------
+
+  const handleSubmit = (
+    event: FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
     void sendQuestion();
   };
 
-  // [06] Enter gửi, Shift + Enter xuống dòng
+  // ----------------------------------------------------
+  // [10] ENTER ĐỂ GỬI
+  // SHIFT + ENTER ĐỂ XUỐNG DÒNG
+  // ----------------------------------------------------
+
   const handleKeyDown = (
     event: KeyboardEvent<HTMLTextAreaElement>
   ) => {
@@ -194,121 +252,189 @@ export default function RagChat({ token }: RagChatProps) {
     }
   };
 
-  // [07] Sao chép câu trả lời
+  // ----------------------------------------------------
+  // [11] SAO CHÉP CÂU TRẢ LỜI AI
+  // ----------------------------------------------------
+
   const copyAnswer = async (turn: ChatTurn) => {
     if (!turn.answer) return;
 
     try {
-      await navigator.clipboard.writeText(turn.answer);
+      await navigator.clipboard.writeText(
+        turn.answer
+      );
+
       setCopiedId(turn.id);
     } catch {
-      setFormError("Không thể sao chép câu trả lời.");
+      setFormError(
+        "Không thể sao chép câu trả lời."
+      );
     }
   };
 
-  // [08] Điền lại câu hỏi đã lỗi để gửi lại thủ công
+  // ----------------------------------------------------
+  // [12] ĐIỀN LẠI CÂU HỎI KHI GẶP LỖI
+  // ----------------------------------------------------
+
   const prepareRetry = (turn: ChatTurn) => {
     setDocumentId(String(turn.documentId));
     setQuestion(turn.question);
     setFormError("");
   };
 
+  // ====================================================
+  // [13] GIAO DIỆN
+  // ====================================================
+
   return (
-    <section className="kd-chat" aria-label="Kdocument AI">
-      {/* Phần giới thiệu */}
+    <section
+      className="kd-chat"
+      aria-label="Kdocument AI"
+    >
+      {/* ============================================= */}
+      {/* HEADER */}
+      {/* ============================================= */}
+
       <header className="kd-chat__header">
         <div className="kd-chat__brand">
-          <div className="kd-chat__brand-icon">✦</div>
+          <div className="kd-chat__brand-icon">
+            ✦
+          </div>
 
           <div>
-            <p className="kd-chat__eyebrow">TRỢ LÝ HỌC TẬP</p>
+            <p className="kd-chat__eyebrow">
+              TRỢ LÝ HỌC TẬP
+            </p>
+
             <h2>Kdocument AI</h2>
+
             <p className="kd-chat__subtitle">
-              Hỏi đáp dựa trên tài liệu học tập có nguồn tham khảo.
+              Hỏi đáp dựa trên tài liệu học tập
+              có nguồn tham khảo.
             </p>
           </div>
         </div>
 
-        <span className="kd-chat__badge">RAG</span>
+        <span className="kd-chat__badge">
+          RAG
+        </span>
       </header>
 
-      {/* Lịch sử chat tạm thời trong bộ nhớ */}
-      <div className="kd-chat__messages" ref={messagesRef}>
+      {/* ============================================= */}
+      {/* DANH SÁCH HỘI THOẠI */}
+      {/* ============================================= */}
+
+      <div
+        className="kd-chat__messages"
+        ref={messagesRef}
+      >
+        {/* Giao diện khi chưa có tin nhắn */}
+
         {turns.length === 0 && (
           <div className="kd-chat__empty">
-            <div className="kd-chat__empty-icon">✦</div>
-            <h3>Bạn muốn tìm hiểu điều gì?</h3>
+            <div className="kd-chat__empty-icon">
+              ✦
+            </div>
+
+            <h3>
+              Bạn muốn tìm hiểu điều gì?
+            </h3>
+
             <p>
-              Chọn mã tài liệu, nhập câu hỏi và Kdocument AI
-              sẽ tìm nội dung liên quan để trả lời.
+              Chọn mã tài liệu, nhập câu hỏi và
+              Kdocument AI sẽ tìm nội dung liên quan
+              để trả lời.
             </p>
           </div>
         )}
 
+        {/* Hiển thị từng lượt hội thoại */}
+
         {turns.map((turn) => (
-          <div className="kd-chat__turn" key={turn.id}>
-            {/* Tin nhắn của người dùng */}
+          <div
+            className="kd-chat__turn"
+            key={turn.id}
+          >
+            {/* ------------------------------------- */}
+            {/* TIN NHẮN NGƯỜI DÙNG */}
+            {/* ------------------------------------- */}
+
             <div className="kd-chat__user-row">
               <div className="kd-chat__user-message">
                 <span className="kd-chat__message-label">
                   Bạn · Tài liệu {turn.documentId}
                 </span>
+
                 <p>{turn.question}</p>
               </div>
             </div>
 
-            {/* Tin nhắn trả lời của AI */}
+            {/* ------------------------------------- */}
+            {/* TIN NHẮN AI */}
+            {/* ------------------------------------- */}
+
             {turn.answer !== undefined && (
               <article className="kd-chat__assistant-message">
                 <div className="kd-chat__assistant-name">
-                  <span className="kd-chat__sparkle">✦</span>
+                  <span className="kd-chat__sparkle">
+                    ✦
+                  </span>
+
                   Kdocument AI
                 </div>
 
+                {/* Hiển thị Markdown */}
+
                 <div className="kd-chat__markdown">
-                  <Markdown remarkPlugins={[remarkGfm]}>
+                  <Markdown
+                    remarkPlugins={[remarkGfm]}
+                  >
                     {turn.answer}
                   </Markdown>
                 </div>
 
-                {/* Nguồn do backend trả về.
-                    Chưa giả lập liên kết PDF khi API chưa có. */}
+                {/* --------------------------------- */}
+                {/* CITATION VIEWER - DAY 16 */}
+                {/* --------------------------------- */}
+
                 {turn.citations &&
                   turn.citations.length > 0 && (
                     <div className="kd-chat__sources">
-                      <h4>Nguồn tham khảo</h4>
+                      <h4>
+                        Nguồn tham khảo
+                      </h4>
 
                       <div className="kd-chat__source-list">
-                        {turn.citations.map((source, index) => (
-                          <div
-                            className="kd-chat__source"
-                            key={`${source.chunk_id}-${index}`}
-                          >
-                            <span className="kd-chat__source-title">
-                              [NGUỒN {source.source_number}]
-                            </span>
-
-                            <span>
-                              Tài liệu {source.document_id}
-                              {source.page_number != null
-                                ? ` · Trang ${source.page_number}`
-                                : ""}
-                            </span>
-                          </div>
-                        ))}
+                        {turn.citations.map(
+                          (source, index) => (
+                            <SourcePreview
+                              key={`${source.document_id}-${source.chunk_id}-${index}`}
+                              citation={source}
+                              token={token}
+                            />
+                          )
+                        )}
                       </div>
                     </div>
                   )}
 
+                {/* --------------------------------- */}
+                {/* MODEL + SAO CHÉP */}
+                {/* --------------------------------- */}
+
                 <div className="kd-chat__answer-footer">
                   <span className="kd-chat__model">
-                    {turn.model ? `Model: ${turn.model}` : ""}
+                    {turn.model
+                      ? `Model: ${turn.model}`
+                      : ""}
                   </span>
 
                   <button
                     type="button"
                     className="kd-chat__copy-button"
-                    onClick={() => void copyAnswer(turn)}
+                    onClick={() =>
+                      void copyAnswer(turn)
+                    }
                   >
                     {copiedId === turn.id
                       ? "✓ Đã sao chép"
@@ -318,7 +444,10 @@ export default function RagChat({ token }: RagChatProps) {
               </article>
             )}
 
-            {/* Hiệu ứng khi API đang xử lý */}
+            {/* ------------------------------------- */}
+            {/* TRẠNG THÁI AI ĐANG XỬ LÝ */}
+            {/* ------------------------------------- */}
+
             {pendingTurnId === turn.id &&
               turn.answer === undefined &&
               !turn.error && (
@@ -327,8 +456,13 @@ export default function RagChat({ token }: RagChatProps) {
                   role="status"
                   aria-live="polite"
                 >
-                  <span className="kd-chat__sparkle">✦</span>
-                  <span>Đang tìm thông tin trong tài liệu</span>
+                  <span className="kd-chat__sparkle">
+                    ✦
+                  </span>
+
+                  <span>
+                    Đang tìm thông tin trong tài liệu
+                  </span>
 
                   <span className="kd-chat__thinking-dots">
                     <i />
@@ -338,14 +472,22 @@ export default function RagChat({ token }: RagChatProps) {
                 </div>
               )}
 
-            {/* Hiển thị lỗi ngay trong đúng lượt chat */}
+            {/* ------------------------------------- */}
+            {/* HIỂN THỊ LỖI */}
+            {/* ------------------------------------- */}
+
             {turn.error && (
-              <div className="kd-chat__error-message" role="alert">
+              <div
+                className="kd-chat__error-message"
+                role="alert"
+              >
                 <p>{turn.error}</p>
 
                 <button
                   type="button"
-                  onClick={() => prepareRetry(turn)}
+                  onClick={() =>
+                    prepareRetry(turn)
+                  }
                 >
                   Điền lại câu hỏi
                 </button>
@@ -355,10 +497,22 @@ export default function RagChat({ token }: RagChatProps) {
         ))}
       </div>
 
-      {/* Khung soạn tin nhắn */}
-      <form className="kd-chat__composer" onSubmit={handleSubmit}>
+      {/* ============================================= */}
+      {/* KHUNG SOẠN CÂU HỎI */}
+      {/* ============================================= */}
+
+      <form
+        className="kd-chat__composer"
+        onSubmit={handleSubmit}
+      >
+        {/* ----------------------------------------- */}
+        {/* MÃ TÀI LIỆU */}
+        {/* ----------------------------------------- */}
+
         <div className="kd-chat__document-field">
-          <label htmlFor="kd-document-id">Mã tài liệu</label>
+          <label htmlFor="kd-document-id">
+            Mã tài liệu
+          </label>
 
           <input
             id="kd-document-id"
@@ -366,7 +520,9 @@ export default function RagChat({ token }: RagChatProps) {
             min="1"
             step="1"
             value={documentId}
-            onChange={(event) => setDocumentId(event.target.value)}
+            onChange={(event) =>
+              setDocumentId(event.target.value)
+            }
             disabled={isSending}
           />
 
@@ -375,7 +531,14 @@ export default function RagChat({ token }: RagChatProps) {
           </span>
         </div>
 
-        <label className="kd-chat__question-label" htmlFor="kd-question">
+        {/* ----------------------------------------- */}
+        {/* NHẬP CÂU HỎI */}
+        {/* ----------------------------------------- */}
+
+        <label
+          className="kd-chat__question-label"
+          htmlFor="kd-question"
+        >
           Câu hỏi của bạn
         </label>
 
@@ -384,37 +547,66 @@ export default function RagChat({ token }: RagChatProps) {
           rows={3}
           maxLength={1000}
           value={question}
-          onChange={(event) => setQuestion(event.target.value)}
+          onChange={(event) =>
+            setQuestion(event.target.value)
+          }
           onKeyDown={handleKeyDown}
           placeholder="Ví dụ: Làm thế nào để truy cập tài liệu từ điện thoại?"
           disabled={isSending}
         />
 
+        {/* Lỗi nhập liệu */}
+
         {formError && (
-          <p className="kd-chat__form-error" role="alert">
+          <p
+            className="kd-chat__form-error"
+            role="alert"
+          >
             {formError}
           </p>
         )}
 
+        {/* ----------------------------------------- */}
+        {/* NÚT GỬI */}
+        {/* ----------------------------------------- */}
+
         <div className="kd-chat__composer-footer">
           <div className="kd-chat__keyboard-hint">
-            <span>{question.length}/1000 ký tự</span>
-            <span>Enter để gửi · Shift + Enter xuống dòng</span>
+            <span>
+              {question.length}/1000 ký tự
+            </span>
+
+            <span>
+              Enter để gửi · Shift + Enter xuống dòng
+            </span>
           </div>
 
           <button
             className="kd-chat__send-button"
             type="submit"
-            disabled={isSending || !question.trim()}
+            disabled={
+              isSending ||
+              !question.trim()
+            }
           >
-            {isSending ? "Đang gửi..." : "Gửi câu hỏi"}
-            <span aria-hidden="true">➤</span>
+            {isSending
+              ? "Đang gửi..."
+              : "Gửi câu hỏi"}
+
+            <span aria-hidden="true">
+              ➤
+            </span>
           </button>
         </div>
 
+        {/* ----------------------------------------- */}
+        {/* LƯU Ý */}
+        {/* ----------------------------------------- */}
+
         <p className="kd-chat__disclaimer">
-          Quyền truy cập tài liệu được kiểm tra trên backend.
-          Câu trả lời AI cần được đối chiếu với nguồn khi cần thiết.
+          Quyền truy cập tài liệu được kiểm tra
+          trên backend. Câu trả lời AI cần được
+          đối chiếu với nguồn khi cần thiết.
         </p>
       </form>
     </section>

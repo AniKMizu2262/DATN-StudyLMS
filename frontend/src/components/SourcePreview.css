@@ -1,0 +1,110 @@
+
+/* ===========================================
+   KDOCUMENT - CITATION SOURCE PREVIEW
+   =========================================== */
+
+.kd-source-preview {
+  width: 100%;
+  border: 1px solid #e4e1fb;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.kd-source-preview__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 11px 13px;
+  border: 0;
+  background: #f0efff;
+  color: #182642;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kd-source-preview__trigger:hover {
+  background: #e8e5ff;
+}
+
+.kd-source-preview__trigger:focus-visible {
+  outline: 2px solid #7568e8;
+  outline-offset: -2px;
+}
+
+.kd-source-preview__trigger:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.kd-source-preview__label {
+  color: #6252d0;
+  font-weight: 800;
+}
+
+.kd-source-preview__meta {
+  color: #65718b;
+}
+
+.kd-source-preview__action {
+  margin-left: auto;
+  color: #6758de;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.kd-source-preview__body {
+  padding: 16px;
+  border-top: 1px solid #e8e5ff;
+  background: #ffffff;
+}
+
+.kd-source-preview__heading {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #6758de;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.kd-source-preview__content {
+  margin: 0;
+  padding: 15px;
+  border-left: 3px solid #7568e8;
+  border-radius: 0 9px 9px 0;
+  background: #f8f7ff;
+  color: #253353;
+  font-size: 13px;
+  line-height: 1.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.kd-source-preview__note,
+.kd-source-preview__loading {
+  margin: 12px 0 0;
+  color: #8b96aa;
+  font-size: 11px;
+}
+
+.kd-source-preview__error {
+  color: #b73636;
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .kd-source-preview__body {
+    padding: 12px;
+  }
+
+  .kd-source-preview__content {
+    padding: 12px;
+  }
+}

@@ -5,14 +5,18 @@ const {
     askRag
 } = require("../controllers/rag.controller");
 
+const {
+    getRagSource
+} = require("../controllers/ragSource.controller");
+
 // ======================================================
-// KDOCUMENT - ROUTES HỎI ĐÁP RAG
-// DAY 13 - JWT VÀ PHÂN QUYỀN
+// KDOCUMENT - ROUTES RAG
+// JWT + HỎI ĐÁP + NGUỒN TRÍCH DẪN
 // ======================================================
 
 const createRagRouter = (verifyAccessToken) => {
 
-    // [01] Kiểm tra middleware xác thực
+    // [01] Kiểm tra middleware JWT
     if (typeof verifyAccessToken !== "function") {
         throw new Error(
             "Middleware xác thực JWT không hợp lệ"
@@ -21,15 +25,21 @@ const createRagRouter = (verifyAccessToken) => {
 
     const router = Router();
 
-    // [02] API hỏi đáp theo tài liệu
+    // [02] Hỏi đáp theo tài liệu
     router.post(
         "/ask",
         verifyAccessToken,
         askRag
     );
 
+    // [03] Xem nội dung chunk gốc của nguồn trích dẫn
+    router.get(
+        "/sources/:documentId/:chunkId",
+        verifyAccessToken,
+        getRagSource
+    );
+
     return router;
 };
 
-// [03] Xuất hàm tạo router
 module.exports = createRagRouter;
