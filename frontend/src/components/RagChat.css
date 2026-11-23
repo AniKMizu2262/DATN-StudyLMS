@@ -1120,3 +1120,112 @@
     max-height: 150px;
   }
 }
+
+/* ======================================================
+   [16] DAY 18 - QUẢN LÝ LỊCH SỬ HỘI THOẠI
+   ====================================================== */
+
+/* [16.1] Một phiên hội thoại */
+
+.kd-chat__history-row {
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.kd-chat__history-row:hover {
+  background: #f0efff;
+}
+
+.kd-chat__history-row--active {
+  border-color: #dedafb;
+  background: #ebe8ff;
+}
+
+/* [16.2] Nút chọn phiên */
+
+.kd-chat__history-select {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  width: 100%;
+  padding: 7px;
+
+  border: none;
+  background: transparent;
+  color: #182642;
+
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kd-chat__history-select:disabled {
+  cursor: default;
+}
+
+/* [16.3] Nhóm nút chức năng */
+
+.kd-chat__history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.kd-chat__history-actions button {
+  padding: 5px 8px;
+
+  border: 1px solid #dddaf3;
+  border-radius: 6px;
+
+  background: #ffffff;
+  color: #6252d0;
+
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kd-chat__history-actions button:hover:not(:disabled) {
+  background: #f3f1ff;
+}
+
+.kd-chat__history-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* [16.4] Nút xóa */
+
+.kd-chat__history-actions .kd-chat__history-delete {
+  color: #b73636;
+  border-color: #f1d6d6;
+}
+
+/* [16.5] Form đổi tên */
+
+.kd-chat__history-editor input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+
+  border: 1px solid #7568e8;
+  border-radius: 7px;
+  outline: none;
+
+  color: #182642;
+  font: inherit;
+  font-size: 12px;
+}
+
+/* [16.6] Focus bàn phím */
+
+.kd-chat__history-select:focus-visible,
+.kd-chat__history-actions button:focus-visible {
+  outline: 2px solid #7568e8;
+  outline-offset: 2px;
+}

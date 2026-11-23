@@ -41,16 +41,25 @@ const saveRagTurn = async ({
         let currentSessionId = sessionId;
 
         // [02.1] Chưa có phiên thì tạo phiên mới.
+        
+        // [DAY 18] Tự đặt tiêu đề cho phiên mới.
         if (currentSessionId === null) {
+            const generatedTitle = Array.from(
+                question.trim().replace(/\s+/g, " ")
+            )
+                .slice(0, 80)
+                .join("") || "Hỏi đáp mới";
+
             const [result] = await connection.query(
                 `INSERT INTO chat_sessions
                     (user_id, title)
                  VALUES (?, ?)`,
-                [userId, "Hỏi đáp mới"]
+                [userId, generatedTitle]
             );
 
             currentSessionId = result.insertId;
-        } else {
+        }
+ else {
             // [02.2] Khóa và xác minh phiên thuộc user.
             const [rows] = await connection.query(
                 `SELECT session_id
