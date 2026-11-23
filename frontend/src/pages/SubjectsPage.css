@@ -1,0 +1,761 @@
+
+/* ======================================================
+   KDOCUMENT - DAY 18
+   SUBJECTS PAGE - DANH SÁCH MÔN HỌC
+
+   [01] Khung trang
+   [02] Header
+   [03] Thống kê
+   [04] Thanh tìm kiếm
+   [05] Thẻ môn học
+   [06] Trạng thái và thông báo
+   [07] Responsive
+   ====================================================== */
+
+/* ======================================================
+   [01] KHUNG TRANG
+   ====================================================== */
+
+.kd-subjects {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #182642;
+}
+
+/* ======================================================
+   [02] HEADER
+   ====================================================== */
+
+.kd-subjects__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kd-subjects__eyebrow {
+  margin: 0 0 6px;
+  color: #7568e8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.kd-subjects__header h2 {
+  margin: 0;
+  color: #182642;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.kd-subjects__description {
+  margin: 8px 0 0;
+  color: #7c88a0;
+  font-size: 13px;
+}
+
+.kd-subjects__refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border: 1px solid #dddaf5;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #6252d0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kd-subjects__refresh:hover:not(:disabled) {
+  background: #f0efff;
+}
+
+.kd-subjects__refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ======================================================
+   [03] THỐNG KÊ
+   ====================================================== */
+
+.kd-subjects__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.kd-subjects__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 19px;
+  border: 1px solid #e4e8f2;
+  border-radius: 13px;
+  background: #ffffff;
+}
+
+.kd-subjects__stat span {
+  color: #7b87a0;
+  font-size: 12px;
+}
+
+.kd-subjects__stat strong {
+  color: #182642;
+  font-size: 27px;
+  font-weight: 800;
+}
+
+/* ======================================================
+   [04] TÌM KIẾM VÀ BỘ LỌC
+   ====================================================== */
+
+.kd-subjects__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.kd-subjects__search {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 220px;
+  gap: 9px;
+  padding: 0 13px;
+  border: 1px solid #dfe4ef;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.kd-subjects__search:focus-within {
+  border-color: #7568e8;
+}
+
+.kd-subjects__search span {
+  color: #8792a7;
+  font-size: 21px;
+}
+
+.kd-subjects__search input {
+  width: 100%;
+  padding: 12px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #182642;
+  font: inherit;
+  font-size: 13px;
+}
+
+.kd-subjects__filter {
+  min-width: 190px;
+  padding: 12px;
+  border: 1px solid #dfe4ef;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #253353;
+  font: inherit;
+  font-size: 13px;
+}
+
+/* ======================================================
+   [05] THẺ MÔN HỌC
+   ====================================================== */
+
+.kd-subjects__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.kd-subjects__card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 230px;
+  padding: 19px;
+  border: 1px solid #e2e6f1;
+  border-radius: 14px;
+  background: #ffffff;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.kd-subjects__card:hover {
+  border-color: #c8c1ff;
+  box-shadow: 0 8px 24px rgba(24, 38, 66, 0.06);
+}
+
+.kd-subjects__card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 17px;
+}
+
+.kd-subjects__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 45px;
+  height: 45px;
+  border-radius: 11px;
+  background: #efedff;
+  color: #6758de;
+}
+
+.kd-subjects__code {
+  color: #7568e8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.kd-subjects__card h3 {
+  margin: 8px 0 10px;
+  color: #182642;
+  font-size: 16px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.kd-subjects__summary {
+  flex: 1;
+  margin: 0 0 18px;
+  color: #78849b;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.kd-subjects__card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 13px;
+  border-top: 1px solid #edf0f7;
+  color: #8a95a9;
+  font-size: 11px;
+}
+
+.kd-subjects__assigned {
+  color: #6252d0;
+  font-weight: 700;
+}
+
+/* ======================================================
+   [06] TRẠNG THÁI VÀ THÔNG BÁO
+   ====================================================== */
+
+.kd-subjects__status {
+  display: inline-block;
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kd-subjects__status--active {
+  background: #eaf8ef;
+  color: #23844a;
+}
+
+.kd-subjects__status--inactive {
+  background: #f0f1f5;
+  color: #737d90;
+}
+
+.kd-subjects__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  padding: 25px;
+  border: 1px dashed #dfe4ef;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #7c88a0;
+  text-align: center;
+  font-size: 13px;
+}
+
+.kd-subjects__empty > span {
+  color: #7568e8;
+  font-size: 38px;
+}
+
+.kd-subjects__empty h3 {
+  margin: 12px 0 4px;
+  color: #182642;
+}
+
+.kd-subjects__empty p {
+  line-height: 1.6;
+}
+
+.kd-subjects__error {
+  margin-bottom: 16px;
+  padding: 15px;
+  border: 1px solid #f0d3d3;
+  border-radius: 10px;
+  background: #fff7f7;
+  color: #b73636;
+  font-size: 13px;
+}
+
+.kd-subjects__error p {
+  margin: 0 0 10px;
+}
+
+.kd-subjects__error button {
+  border: none;
+  background: transparent;
+  color: #a62b2b;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ======================================================
+   [07] RESPONSIVE
+   ====================================================== */
+
+@media (max-width: 1050px) {
+  .kd-subjects__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .kd-subjects__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .kd-subjects__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kd-subjects__filter {
+    width: 100%;
+  }
+
+  .kd-subjects__header h2 {
+    font-size: 21px;
+  }
+}
+
+/* ======================================================
+   KDOCUMENT - ADMIN SUBJECT MANAGEMENT
+
+   [01] Các nút chức năng
+   [02] Form thêm / sửa môn học
+   [03] Thông báo và nút chỉnh sửa
+   [04] Responsive
+   ====================================================== */
+
+/* ======================================================
+   [01] NÚT CHỨC NĂNG TRÊN HEADER
+   ====================================================== */
+
+.kd-subjects__header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.kd-subjects__add,
+.kd-subjects__save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 9px;
+  background: #6b5ce7;
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kd-subjects__add:hover:not(:disabled),
+.kd-subjects__save:hover:not(:disabled) {
+  background: #5948d1;
+}
+
+.kd-subjects__add:disabled,
+.kd-subjects__save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.kd-subjects__add .material-symbols-outlined,
+.kd-subjects__save .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* ======================================================
+   [02] KHUNG FORM ADMIN
+   ====================================================== */
+
+.kd-subjects__editor {
+  margin-bottom: 24px;
+  padding: 22px;
+  border: 1px solid #dedbf5;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 26px rgba(35, 30, 90, 0.04);
+}
+
+.kd-subjects__editor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.kd-subjects__editor-header h3 {
+  margin: 0 0 6px;
+  color: #182642;
+  font-size: 18px;
+}
+
+.kd-subjects__editor-header p {
+  margin: 0;
+  color: #8290a5;
+  font-size: 12px;
+}
+
+.kd-subjects__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: #f1f2f8;
+  color: #65718a;
+  cursor: pointer;
+}
+
+.kd-subjects__form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.kd-subjects__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kd-subjects__field--full {
+  grid-column: 1 / -1;
+}
+
+.kd-subjects__field label {
+  color: #33415e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kd-subjects__field input,
+.kd-subjects__field select,
+.kd-subjects__field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid #dfe4ef;
+  border-radius: 9px;
+  outline: none;
+  background: #ffffff;
+  color: #182642;
+  font: inherit;
+  font-size: 13px;
+}
+
+.kd-subjects__field textarea {
+  resize: vertical;
+  min-height: 85px;
+}
+
+.kd-subjects__field input:focus,
+.kd-subjects__field select:focus,
+.kd-subjects__field textarea:focus {
+  border-color: #7568e8;
+  box-shadow: 0 0 0 3px rgba(117, 104, 232, 0.1);
+}
+
+.kd-subjects__form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.kd-subjects__cancel {
+  padding: 10px 15px;
+  border: 1px solid #dfe4ef;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #65718a;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ======================================================
+   [03] THÔNG BÁO VÀ NÚT CHỈNH SỬA
+   ====================================================== */
+
+.kd-subjects__notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
+  padding: 13px 15px;
+  border: 1px solid #ccebd7;
+  border-radius: 10px;
+  background: #f1fcf5;
+  color: #267a48;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.kd-subjects__notice .material-symbols-outlined {
+  font-size: 19px;
+}
+
+.kd-subjects__edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid #e3defb;
+  border-radius: 7px;
+  background: #f5f3ff;
+  color: #6657d8;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kd-subjects__edit:hover:not(:disabled) {
+  background: #ebe7ff;
+}
+
+.kd-subjects__edit .material-symbols-outlined {
+  font-size: 15px;
+}
+
+/* ======================================================
+   [04] GIAO DIỆN MOBILE
+   ====================================================== */
+
+@media (max-width: 680px) {
+  .kd-subjects__header-actions {
+    width: 100%;
+  }
+
+  .kd-subjects__editor {
+    padding: 16px;
+  }
+
+  .kd-subjects__form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kd-subjects__field--full {
+    grid-column: auto;
+  }
+}
+
+/* ======================================================
+   KDOCUMENT - PHÂN CÔNG GIẢNG VIÊN
+   Chỉ bổ sung CSS cho khu vực mới.
+   ====================================================== */
+
+/* [01] Khung phân công */
+.kd-subjects__teacher-panel {
+  margin-bottom: 24px;
+  padding: 22px;
+  border: 1px solid #dedbf5;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.kd-subjects__teacher-section h4 {
+  margin: 0 0 14px;
+  color: #253353;
+  font-size: 14px;
+}
+
+.kd-subjects__teacher-muted {
+  color: #8290a5;
+  font-size: 13px;
+}
+
+/* [02] Danh sách giảng viên đang phụ trách */
+.kd-subjects__teacher-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kd-subjects__teacher-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e5e8f2;
+  border-radius: 10px;
+  background: #fafbff;
+}
+
+.kd-subjects__teacher-item > .material-symbols-outlined {
+  color: #7465df;
+  font-size: 23px;
+}
+
+.kd-subjects__teacher-item > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+}
+
+.kd-subjects__teacher-item strong {
+  color: #253353;
+  font-size: 13px;
+}
+
+.kd-subjects__teacher-item small {
+  color: #8190a7;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.kd-subjects__teacher-tag {
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: #eeebff;
+  color: #6858d3;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* [03] Form phân công thêm giảng viên */
+.kd-subjects__teacher-form {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #edf0f7;
+}
+
+.kd-subjects__teacher-form label {
+  display: block;
+  margin-bottom: 10px;
+  color: #33415e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kd-subjects__teacher-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.kd-subjects__teacher-actions select {
+  flex: 1;
+  min-width: 220px;
+  padding: 11px 12px;
+  border: 1px solid #dfe4ef;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #253353;
+  font: inherit;
+  font-size: 13px;
+}
+
+.kd-subjects__teacher-actions select:focus {
+  outline: none;
+  border-color: #7568e8;
+}
+
+/* [04] Responsive mobile */
+@media (max-width: 680px) {
+  .kd-subjects__teacher-panel {
+    padding: 16px;
+  }
+
+  .kd-subjects__teacher-actions select,
+  .kd-subjects__teacher-actions button {
+    width: 100%;
+  }
+
+  .kd-subjects__teacher-tag {
+    display: none;
+  }
+}
+
+/* ======================================================
+   KDOCUMENT - ADMIN REMOVE TEACHER
+   ====================================================== */
+
+.kd-subjects__remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 1px solid #f2caca;
+  border-radius: 7px;
+  background: #fff3f3;
+  color: #c53e3e;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kd-subjects__remove:hover:not(:disabled) {
+  background: #ffe5e5;
+}
+
+.kd-subjects__remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.kd-subjects__remove .material-symbols-outlined {
+  font-size: 16px;
+}

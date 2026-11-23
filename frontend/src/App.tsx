@@ -7,8 +7,12 @@ import AppLayout, {
     type AppPage
 } from "./components/layout/AppLayout";
 
+
 import RoleDashboard from "./pages/RoleDashboard";
+import SubjectsPage from "./pages/SubjectsPage";
 import RagChat from "./components/RagChat";
+
+
 
 import "./App.css";
 
@@ -232,14 +236,34 @@ function App() {
                 onNavigate={handleNavigate}
                 onLogout={handleLogout}
             >
-                {currentPage === "ai" && canUseAi ? (
-                    <RagChat token={token} />
-                ) : (
-                    <RoleDashboard
-                        user={user}
-                        onNavigate={handleNavigate}
-                    />
-                )}
+                
+{/* ====================================================
+    [DAY 18] ĐIỀU HƯỚNG NỘI DUNG THEO TRANG
+
+    - dashboard : Trang tổng quan theo vai trò
+    - subjects  : Danh sách môn học / môn phụ trách
+    - ai        : Trợ lý Kdocument AI
+    ==================================================== */}
+
+{currentPage === "ai" && canUseAi ? (
+    // [01] Trợ lý AI
+    <RagChat token={token} />
+
+) : currentPage === "subjects" ? (
+    // [02] Danh sách môn học theo vai trò
+    <SubjectsPage
+        token={token}
+        role={user.role}
+    />
+
+) : (
+    // [03] Trang tổng quan mặc định
+    <RoleDashboard
+        user={user}
+        onNavigate={handleNavigate}
+    />
+)}
+
             </AppLayout>
         );
     }
