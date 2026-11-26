@@ -1,9 +1,24 @@
 
 const express = require("express");
 
+// ======================================================
+// KDOCUMENT - SUBJECT ROUTES
+//
+// [01] Middleware phân quyền
+// [02] API danh sách môn học
+// [03] API dành cho giảng viên
+// [04] API quản lý môn học
+// [05] API phân công giảng viên
+// [06] API tài liệu theo môn học
+// [07] API chi tiết môn học
+// [08] Export router
+// ======================================================
+
+// [01] Import middleware.
 const verifyToken = require("../middleware/auth.middleware");
 const verifySubjectTeacher = require("../middleware/subject.middleware");
 
+// [02] Import controller.
 const {
     getAllSubjects,
     getSubjectById,
@@ -13,29 +28,18 @@ const {
     assignSubjectTeacher,
     getAvailableTeachers,
     getSubjectTeachers,
-    removeSubjectTeacher
+    removeSubjectTeacher,
+    getSubjectDocuments
 } = require("../controllers/subject.controller");
-
-// ======================================================
-// KDOCUMENT - SUBJECT ROUTES
-//
-// [01] Middleware phân quyền ADMIN
-// [02] API tra cứu môn học
-// [03] API dành cho giảng viên
-// [04] API quản trị môn học
-// [05] API quản lý phân công giảng viên
-// ======================================================
 
 const router = express.Router();
 
 // ======================================================
-// [01] MIDDLEWARE KIỂM TRA QUYỀN ADMIN
-//
-// verifyToken phải chạy trước để xác thực JWT
-// và cung cấp thông tin req.user.
+// [01] MIDDLEWARE PHÂN QUYỀN ADMIN
 // ======================================================
 
 const verifyAdmin = (req, res, next) => {
+    // Middleware này phải chạy sau verifyToken.
     if (req.user?.role !== "ADMIN") {
         return res.status(403).json({
             success: false,
@@ -47,10 +51,10 @@ const verifyAdmin = (req, res, next) => {
 };
 
 // ======================================================
-// [02] API TRA CỨU MÔN HỌC
+// [02] API DANH SÁCH MÔN HỌC
 // ======================================================
 
-// [02.1] Lấy danh sách môn học toàn hệ thống.
+// [02.1] Lấy tất cả môn học.
 // GET /api/subjects
 router.get("/", getAllSubjects);
 
@@ -58,7 +62,7 @@ router.get("/", getAllSubjects);
 // [03] API DÀNH CHO GIẢNG VIÊN
 // ======================================================
 
-// [03.1] Lấy các môn học được phân công phụ trách.
+// [03.1] Lấy môn học giảng viên phụ trách.
 // GET /api/subjects/mine
 router.get(
     "/mine",
@@ -66,7 +70,7 @@ router.get(
     getMySubjects
 );
 
-// [03.2] Kiểm tra quyền phụ trách một môn học.
+// [03.2] Kiểm tra quyền phụ trách môn học.
 // GET /api/subjects/:subjectId/teacher-access
 router.get(
     "/:subjectId/teacher-access",
@@ -82,8 +86,7 @@ router.get(
 );
 
 // ======================================================
-// [04] API QUẢN TRỊ MÔN HỌC
-// Chỉ ADMIN được tạo hoặc cập nhật môn học.
+// [04] API QUẢN LÝ MÔN HỌC - ADMIN
 // ======================================================
 
 // [04.1] Tạo môn học mới.
@@ -95,7 +98,7 @@ router.post(
     createSubject
 );
 
-// [04.2] Cập nhật mã, tên, mô tả hoặc trạng thái.
+// [04.2] Cập nhật thông tin môn học.
 // PATCH /api/subjects/:id
 router.patch(
     "/:id",
@@ -105,11 +108,10 @@ router.patch(
 );
 
 // ======================================================
-// [05] API QUẢN LÝ PHÂN CÔNG GIẢNG VIÊN
-// Chỉ ADMIN được sử dụng các API bên dưới.
+// [05] API QUẢN LÝ PHÂN CÔNG GIẢNG VIÊN - ADMIN
 // ======================================================
 
-// [05.1] Lấy danh sách tài khoản giảng viên.
+// [05.1] Lấy danh sách tài khoản TEACHER.
 // GET /api/subjects/admin/teachers
 router.get(
     "/admin/teachers",
@@ -118,7 +120,7 @@ router.get(
     getAvailableTeachers
 );
 
-// [05.2] Lấy giảng viên đang phụ trách một môn học.
+// [05.2] Lấy giảng viên đang phụ trách môn học.
 // GET /api/subjects/:id/teachers
 router.get(
     "/:id/teachers",
@@ -127,7 +129,7 @@ router.get(
     getSubjectTeachers
 );
 
-// [05.3] Phân công giảng viên cho môn học.
+// [05.3] Phân công giảng viên vào môn học.
 // POST /api/subjects/:id/teachers
 router.post(
     "/:id/teachers",
@@ -136,18 +138,8 @@ router.post(
     assignSubjectTeacher
 );
 
-// ======================================================
-// [06] API CHI TIẾT MÔN HỌC
-//
-// Đặt route động /:id sau các route GET cụ thể
-// để tránh xung đột khi mở rộng API sau này.
-// ======================================================
-
-// ======================================================
-// [ADMIN] GỠ GIẢNG VIÊN KHỎI MÔN HỌC
+// [05.4] Gỡ phân công giảng viên.
 // DELETE /api/subjects/:id/teachers/:teacherId
-// ======================================================
-
 router.delete(
     "/:id/teachers/:teacherId",
     verifyToken,
@@ -155,11 +147,39 @@ router.delete(
     removeSubjectTeacher
 );
 
-// GET /api/subjects/:id
-router.get("/:id", getSubjectById);
+// ======================================================
+// [06] API TÀI LIỆU THEO MÔN HỌC
+// ======================================================
+
+// [06.1] Lấy tài liệu thuộc một môn học.
+// GET /api/subjects/:id/documents
+//
+// Yêu cầu đăng nhập.
+// Controller xử lý quyền theo vai trò:
+// - ADMIN
+// - TEACHER
+// - STUDENT
+router.get(
+    "/:id/documents",
+    verifyToken,
+    getSubjectDocuments
+);
 
 // ======================================================
-// [07] EXPORT ROUTER
+// [07] API CHI TIẾT MÔN HỌC
+//
+// Đặt GET /:id sau các GET có đường dẫn cụ thể.
+// ======================================================
+
+// [07.1] Lấy thông tin môn học theo ID.
+// GET /api/subjects/:id
+router.get(
+    "/:id",
+    getSubjectById
+);
+
+// ======================================================
+// [08] EXPORT ROUTER
 // ======================================================
 
 module.exports = router;

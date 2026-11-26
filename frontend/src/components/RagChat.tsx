@@ -324,11 +324,18 @@ export default function RagChat({
   // - Tự mở phiên hoạt động gần nhất.
   // - Khôi phục câu hỏi, câu trả lời và citations.
   useEffect(() => {
-    const controller = new AbortController();
-    const generation = ++generationRef.current;
+  const controller = new AbortController();
+
+  // Giữ tham chiếu ổn định cho vòng đời effect.
+  const generationTracker = generationRef;
+  const generation = ++generationTracker.current;
 
     const initializeHistory = async () => {
-      setIsHistoryLoading(true);
+  // Reset trạng thái gửi câu hỏi của tài khoản cũ.
+  requestInProgress.current = false;
+  setIsSending(false);
+  setIsSessionLoading(false);
+  setIsHistoryLoading(true);
       setHistoryError("");
       setSessions([]);
       setTurns([]);
@@ -448,10 +455,11 @@ export default function RagChat({
 
     // Không giữ request khi component bị hủy.
     return () => {
-      generationRef.current++;
-      controller.abort();
-    };
-  }, [token]);
+  // Vô hiệu hóa các phản hồi thuộc phiên cũ.
+  generationTracker.current++;
+  controller.abort();
+};
+}, [token]);
 
   // ====================================================
   // [11] LÀM MỚI DANH SÁCH PHIÊN
@@ -916,12 +924,13 @@ export default function RagChat({
         )
       );
     } finally {
-      requestInProgress.current = false;
-
-      if (generation === generationRef.current) {
-        setIsSending(false);
-      }
-    }
+  // Chỉ reset trạng thái nếu request vẫn thuộc
+  // thế hệ tài khoản đang hoạt động.
+  if (generation === generationRef.current) {
+    requestInProgress.current = false;
+    setIsSending(false);
+  }
+}
   };
 
   // ====================================================

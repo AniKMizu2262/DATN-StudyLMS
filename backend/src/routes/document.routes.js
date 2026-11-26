@@ -2,7 +2,9 @@
 const express = require("express");
 const multer = require("multer");
 const router = express.Router();
-
+const {
+    processDocumentForRag
+} = require("../controllers/documentProcess.controller");
 // ======================================================
 // [A] IMPORT MIDDLEWARE VÀ CẤU HÌNH
 // ======================================================
@@ -203,6 +205,19 @@ router.delete(
     authorizeRoles("ADMIN", "TEACHER"),
     deleteDocument
 );
+
+// ======================================================
+// [DAY 19] XỬ LÝ PDF CHO RAG
+// POST /api/documents/:id/process
+// ======================================================
+
+router.post(
+    "/:id/process",
+    verifyToken,
+    authorizeRoles("ADMIN", "TEACHER"),
+    processDocumentForRag
+);
+
 
 // ======================================================
 // [E] XUẤT ROUTER - LUÔN ĐỂ CUỐI FILE

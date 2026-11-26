@@ -1,63 +1,146 @@
 
- // ======================================================
- // KDOCUMENT - DỊCH VỤ CHIA NHỎ VĂN BẢN
- // ======================================================
+"use strict";
+
+// ======================================================
+// KDOCUMENT - CHUNK SERVICE
+//
+// [01] Giữ xuống dòng văn bản
+// [02] Giữ ranh giới các hàng bảng khi có thể
+// [03] Chia chunk tối đa 600 ký tự
+// [04] Giữ ngữ cảnh giữa các chunk
+// [05] Bảo toàn số trang trích dẫn
+// ======================================================
 
 const MAX_CHARS = 600;
 const OVERLAP_CHARS = 100;
 
-// [01] CHIA NỘI DUNG THÀNH CÁC ĐOẠN CÓ CHỒNG LẤN
+// [01] Chia dòng quá dài mà không cắt mất ký tự.
+const splitLongLine = (line) => {
+    const result = [];
+    let rest = line;
+
+    while (rest.length > MAX_CHARS) {
+        let cut = rest.lastIndexOf(" ", MAX_CHARS);
+
+        if (cut < MAX_CHARS / 2) {
+            cut = MAX_CHARS;
+        }
+
+        result.push(
+            rest.slice(0, cut).trim()
+        );
+
+        rest = rest.slice(cut).trim();
+    }
+
+    if (rest) {
+        result.push(rest);
+    }
+
+    return result;
+};
+
+// [02] Chia văn bản theo dòng thay vì xóa xuống dòng.
 const splitText = (text) => {
-    const words = text.trim().split(/\s+/u).filter(Boolean);
+    if (
+        typeof text !== "string" ||
+        !text.trim()
+    ) {
+        return [];
+    }
+
+    const normalized = text
+        .replace(/\r\n?/g, "\n")
+        .replace(/\u00a0/g, " ")
+        // Giữ ranh giới cột dưới dạng dấu |.
+        .replace(/\t+/g, " | ")
+        .replace(/[ ]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+
     const chunks = [];
+    let current = "";
 
-    let start = 0;
+    for (const rawLine of normalized.split("\n")) {
+        // [02.1] Giữ khoảng cách giữa các đoạn.
+        if (!rawLine.trim()) {
+            if (
+                current &&
+                !current.endsWith("\n\n")
+            ) {
+                current += "\n";
+            }
 
-    while (start < words.length) {
-        let end = start;
-        let length = 0;
-
-        // Gom từ vào chunk, tối đa khoảng 600 ký tự
-        while (end < words.length) {
-            const wordLength = words[end].length;
-            const nextLength = length + (end > start ? 1 : 0) + wordLength;
-
-            if (end > start && nextLength > MAX_CHARS) break;
-
-            length = nextLength;
-            end++;
+            continue;
         }
 
-        chunks.push(words.slice(start, end).join(" "));
+        const parts = splitLongLine(
+            rawLine.trim()
+        );
 
-        if (end >= words.length) break;
+        for (const line of parts) {
+            const joiner =
+                current && !current.endsWith("\n")
+                    ? "\n"
+                    : "";
 
-        // Giữ lại khoảng 100 ký tự cuối làm ngữ cảnh
-        let overlapStart = end;
-        let overlapLength = 0;
+            const candidate =
+                current + joiner + line;
 
-        while (
-            overlapStart > start + 1 &&
-            overlapLength < OVERLAP_CHARS
-        ) {
-            overlapStart--;
-            overlapLength += words[overlapStart].length + 1;
+            // [02.2] Đẩy chunk khi vượt giới hạn.
+            if (
+                candidate.length > MAX_CHARS &&
+                current.trim()
+            ) {
+                chunks.push(current.trim());
+
+                // [02.3] Giữ lại dòng cuối làm ngữ cảnh
+                // nếu dòng đó không quá dài.
+                const lastLine =
+                    current
+                        .trim()
+                        .split("\n")
+                        .filter(Boolean)
+                        .at(-1) || "";
+
+                const withOverlap =
+                    `${lastLine}\n${line}`;
+
+                current = (
+                    lastLine.length > 0 &&
+                    lastLine.length <= OVERLAP_CHARS &&
+                    lastLine !== line &&
+                    withOverlap.length <= MAX_CHARS
+                )
+                    ? withOverlap
+                    : line;
+
+            } else {
+                current = candidate;
+            }
         }
+    }
 
-        start = overlapStart;
+    if (current.trim()) {
+        chunks.push(current.trim());
     }
 
     return chunks;
 };
 
-// [02] TẠO CHUNK THEO TỪNG TRANG PDF
+// [03] Tạo chunk theo từng trang PDF.
 const createDocumentChunks = (documentId, pages) => {
-    if (!Number.isSafeInteger(documentId) || documentId <= 0) {
+    if (
+        !Number.isSafeInteger(documentId) ||
+        documentId <= 0
+    ) {
         throw new Error("Mã tài liệu không hợp lệ");
     }
 
     if (!Array.isArray(pages)) {
-        throw new Error("Danh sách trang PDF không hợp lệ");
+        throw new Error(
+            "Danh sách trang PDF không hợp lệ"
+        );
     }
 
     const result = [];
@@ -68,7 +151,9 @@ const createDocumentChunks = (documentId, pages) => {
             page.pageNumber <= 0 ||
             typeof page.text !== "string"
         ) {
-            throw new Error("Dữ liệu trang PDF không hợp lệ");
+            throw new Error(
+                "Dữ liệu trang PDF không hợp lệ"
+            );
         }
 
         const parts = splitText(page.text);

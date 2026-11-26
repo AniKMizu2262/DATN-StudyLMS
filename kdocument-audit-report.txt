@@ -1,0 +1,125 @@
+﻿KDOCUMENT SOURCE AUDIT
+Time: 2026-11-25 16:05:28
+Root: F:\DATN-LMS_Study
+NO DB ALTER / NO API CALL / NO SECRET CONTENT DISPLAYED
+
+--- Node version ---
+v24.20.0
+EXIT CODE: 0
+
+--- NPM version ---
+11.19.0
+EXIT CODE: 0
+
+--- Git branch ---
+Day19-SubjectDocuments
+EXIT CODE: 0
+
+--- Git status ---
+ M backend/src/controllers/rag.controller.js
+ M backend/src/controllers/subject.controller.js
+ M backend/src/routes/document.routes.js
+ M backend/src/routes/subject.routes.js
+ M backend/src/services/chunk.service.js
+ M backend/src/services/llm.service.js
+ M backend/src/services/pdf.service.js
+ M frontend/src/components/SourcePreview.tsx
+ M frontend/src/pages/SubjectsPage.tsx
+?? backend/src/controllers/documentProcess.controller.js
+?? frontend/src/pages/SubjectDocumentsWidget.css
+?? frontend/src/pages/SubjectDocumentsWidget.tsx
+EXIT CODE: 0
+
+--- Git whitespace/error markers ---
+backend/src/controllers/rag.controller.js:233: trailing whitespace.
++            
+backend/src/services/llm.service.js:221: trailing whitespace.
++    
+backend/src/services/llm.service.js:240: trailing whitespace.
++    
+frontend/src/components/SourcePreview.tsx:386: trailing whitespace.
++              
+frontend/src/pages/SubjectsPage.tsx:1324: trailing whitespace.
++              
+EXIT CODE: 2
+FILE EXISTS: backend/.env
+FILE EXISTS: backend/src/services/llm.service.js
+FILE EXISTS: backend/src/controllers/rag.controller.js
+FILE EXISTS: backend/src/services/pdf.service.js
+FILE EXISTS: backend/src/services/chunk.service.js
+FILE EXISTS: backend/src/controllers/documentProcess.controller.js
+FILE EXISTS: frontend/src/components/RagChat.tsx
+FILE EXISTS: frontend/src/components/SourcePreview.tsx
+FILE EXISTS: frontend/src/components/SourcePreview.css
+
+--- Backend JS syntax: one file at a time ---
+PASS: backend\src\config\database.js
+PASS: backend\src\config\upload.js
+PASS: backend\src\controllers\auth.controller.js
+PASS: backend\src\controllers\chat.controller.js
+PASS: backend\src\controllers\document.controller.js
+PASS: backend\src\controllers\documentProcess.controller.js
+PASS: backend\src\controllers\documentSearch.controller.js
+PASS: backend\src\controllers\rag.controller.js
+PASS: backend\src\controllers\ragSource.controller.js
+PASS: backend\src\controllers\subject.controller.js
+PASS: backend\src\middleware\auth.middleware.js
+PASS: backend\src\middleware\role.middleware.js
+PASS: backend\src\middleware\subject.middleware.js
+PASS: backend\src\routes\auth.routes.js
+PASS: backend\src\routes\chat.routes.js
+PASS: backend\src\routes\document.routes.js
+PASS: backend\src\routes\rag.routes.js
+PASS: backend\src\routes\subject.routes.js
+PASS: backend\src\server.js
+PASS: backend\src\services\chatHistory.service.js
+PASS: backend\src\services\chunk.service.js
+PASS: backend\src\services\embedding.service.js
+PASS: backend\src\services\llm.service.js
+PASS: backend\src\services\pdf.service.js
+PASS: backend\src\services\ragAccess.service.js
+PASS: backend\src\services\ragCitation.service.js
+PASS: backend\src\services\ragContext.service.js
+PASS: backend\src\services\vectorSearch.service.js
+BACKEND SYNTAX: 28/28 passed
+
+--- backend npm scripts: start, dev ---
+
+--- frontend npm scripts: dev, build, lint, preview ---
+
+--- frontend npm run lint ---
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+F:\DATN-LMS_Study\frontend\src\components\RagChat.tsx
+  451:21  warning  The ref value 'generationRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'generationRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+Γ£û 1 problem (0 errors, 1 warning)
+
+EXIT CODE: 0
+
+--- frontend npm run build ---
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+[36mvite v8.3.4 [32mbuilding client environment for production...[36m[39m
+transforming...
+Γ£ô 280 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB Γöé gzip:   0.29 kB
+dist/assets/index-D0WyzF0e.css   38.36 kB Γöé gzip:   7.59 kB
+dist/assets/index-Cr718AgH.js   432.36 kB Γöé gzip: 130.65 kB
+
+[32mΓ£ô built in 3.73s[39m
+[33m[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 3.6s of this 3.7s build (95%).
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin vite:css transform (56%, 2.1s, 8 calls)
+  - plugin vite:css-post renderChunk (35%, 1.3s, 1 call)
+Additional callback time came from callbacks under 1s.
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+[39m
+EXIT CODE: 0

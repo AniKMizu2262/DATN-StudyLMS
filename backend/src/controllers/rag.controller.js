@@ -220,7 +220,6 @@ const askRag = async (req, res) => {
                     documentId,
                     req.user
                 );
-
             if (!currentAccess) {
                 return res.status(403).json({
                     success: false,
@@ -230,22 +229,60 @@ const askRag = async (req, res) => {
             }
 
             // Lần thứ hai yêu cầu trích dẫn chặt chẽ hơn.
-            const llmQuestion =
-                attempt === 1
-                    ? cleanQuestion
-                    : [
-                        cleanQuestion,
+            
+// ======================================================
+// [04] TỐI ƯU CÂU HỎI GỬI ĐẾN LLM
+//
+// Áp dụng định dạng trích dẫn ngay từ lượt đầu.
+// Ưu tiên diễn đạt tiếng Việt tự nhiên.
+// ======================================================
+
+            const llmQuestion = [
+                "CÂU HỎI CỦA NGƯỜI DÙNG:",
+                cleanQuestion,
+
+                "",
+                "YÊU CẦU TRẢ LỜI:",
+
+                "1. Trả lời bằng tiếng Việt tự nhiên,",
+                "mạch lạc, dễ hiểu và phù hợp với sinh viên.",
+
+                "2. Diễn giải các tiêu đề tiếng Anh sang",
+                "tiếng Việt, giữ thuật ngữ chuyên môn khi cần.",
+
+                "3. Ưu tiên câu văn hoàn chỉnh,",
+                "không sao chép máy móc danh sách từ slide.",
+
+                "4. Chỉ sử dụng những thông tin có trong",
+                "ngữ cảnh tài liệu được cung cấp.",
+
+                "5. Nếu tài liệu chỉ liệt kê các chủ đề,",
+                "hãy tóm tắt những chủ đề được đề cập,",
+                "không tự tạo thêm nội dung chi tiết.",
+
+                "6. Không thêm câu kết luận về thiếu thông tin",
+                "nếu ngữ cảnh đã đủ để trả lời câu hỏi.",
+
+                "7. Mỗi ý sử dụng thông tin từ tài liệu",
+                "phải có ký hiệu nguồn ngay sau ý đó.",
+
+                `Các nguồn hợp lệ: ${allowedSources}.`,
+
+                "Định dạng trích dẫn: [NGUỒN 1].",
+                "Chỉ sử dụng mã nguồn thực sự có trong danh sách.",
+                "Không tự tạo nguồn hoặc số trang.",
+
+                ...(attempt > 1
+                    ? [
                         "",
-                        "YÊU CẦU ĐỊNH DẠNG BẮT BUỘC:",
-                        "Câu trả lời trước chưa có trích dẫn hợp lệ.",
-                        "Hãy tạo lại câu trả lời dựa trên tài liệu.",
-                        "Mỗi thông tin từ tài liệu phải có nguồn.",
-                        `Các nguồn được phép: ${allowedSources}.`,
-                        "Ví dụ: [NGUỒN 1].",
-                        "Không tạo nguồn không tồn tại.",
-                        "Không suy diễn thông tin ngoài tài liệu.",
-                        "Nếu thiếu thông tin, hãy nói rõ."
-                    ].join("\n");
+                        "LƯU Ý QUAN TRỌNG:",
+                        "Câu trả lời trước chưa đạt kiểm tra trích dẫn.",
+                        "Hãy tuân thủ chính xác định dạng nguồn.",
+                        "Không bỏ qua trích dẫn."
+                    ]
+                    : [])
+            ].join("\n");
+
 
             console.log(
                 `[RAG] Kiểm tra câu trả lời ${attempt}/${MAX_CITATION_ATTEMPTS}`

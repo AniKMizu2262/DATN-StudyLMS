@@ -383,9 +383,18 @@ export default function SourcePreview({
                 </span>
               </div>
 
-              <p className="kd-source-preview__content">
-                {source.content}
-              </p>
+              
+{/* Giữ xuống dòng, khoảng cách và cấu trúc văn bản gốc */}
+<div
+  className="kd-source-preview__content"
+  style={{
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    tabSize: 4,
+  }}
+>
+  {source.content}
+</div>
 
               <p className="kd-source-preview__note">
                 Nội dung trích xuất từ PDF để đối

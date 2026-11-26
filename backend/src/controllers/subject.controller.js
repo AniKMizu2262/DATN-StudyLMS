@@ -672,6 +672,131 @@ const removeSubjectTeacher = async (req, res) => {
 
 
 // ======================================================
+// [10] LẤY DANH SÁCH TÀI LIỆU THEO MÔN HỌC
+// GET /api/subjects/:id/documents
+//
+// ADMIN: Xem tài liệu của môn để quản trị.
+// TEACHER: Xem tất cả tài liệu nếu phụ trách môn.
+// STUDENT: Chỉ xem tài liệu PUBLIC đã sẵn sàng.
+// ======================================================
+
+const getSubjectDocuments = async (req, res) => {
+    try {
+        // [01] Kiểm tra ID môn học.
+        const subjectId = Number(req.params.id);
+        const role = req.user?.role;
+        const userId = Number(req.user?.userId);
+
+        if (
+            !Number.isSafeInteger(subjectId) ||
+            subjectId <= 0
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "ID môn học không hợp lệ"
+            });
+        }
+
+        // [02] Kiểm tra vai trò hợp lệ.
+        if (!["ADMIN", "TEACHER", "STUDENT"].includes(role)) {
+            return res.status(403).json({
+                success: false,
+                message: "Bạn không có quyền truy cập"
+            });
+        }
+
+        // [03] Kiểm tra môn học tồn tại.
+        const [subjects] = await pool.query(
+            `SELECT subject_id
+             FROM subjects
+             WHERE subject_id = ?
+             LIMIT 1`,
+            [subjectId]
+        );
+
+        if (subjects.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Không tìm thấy môn học"
+            });
+        }
+
+        // [04] Xác định quyền xem tài liệu chưa công bố.
+        let canViewAll = role === "ADMIN";
+
+        if (role === "TEACHER") {
+            if (
+                !Number.isSafeInteger(userId) ||
+                userId <= 0
+            ) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Thông tin đăng nhập không hợp lệ"
+                });
+            }
+
+            const [assignments] = await pool.query(
+                `SELECT subject_id
+                 FROM subject_teachers
+                 WHERE subject_id = ?
+                   AND teacher_id = ?
+                 LIMIT 1`,
+                [subjectId, userId]
+            );
+
+            canViewAll = assignments.length > 0;
+        }
+
+        // [05] Truy vấn tài liệu của môn học.
+        // Không lấy tài liệu đã xóa mềm.
+        let sql = `
+            SELECT
+                document_id,
+                subject_id,
+                title,
+                file_type,
+                visibility,
+                status,
+                review_status
+            FROM documents
+            WHERE subject_id = ?
+              AND deleted_at IS NULL
+        `;
+
+        // [06] Người không phụ trách chỉ xem tài liệu
+        // PUBLIC, READY và đã được phê duyệt.
+        if (!canViewAll) {
+            sql += `
+                AND visibility = 'PUBLIC'
+                AND status = 'READY'
+                AND review_status = 'APPROVED'
+            `;
+        }
+
+        sql += " ORDER BY document_id DESC";
+
+        const [documents] = await pool.query(
+            sql,
+            [subjectId]
+        );
+
+        // [07] Trả danh sách tài liệu.
+        return res.status(200).json({
+            success: true,
+            data: documents
+        });
+
+    } catch (error) {
+        console.error("Get subject documents error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Không thể lấy tài liệu của môn học"
+        });
+    }
+};
+
+// ======================================================
 // [09] EXPORT CONTROLLER
 // ======================================================
 
@@ -684,5 +809,6 @@ module.exports = {
     assignSubjectTeacher,
     getAvailableTeachers,
     getSubjectTeachers,
-    removeSubjectTeacher
+    removeSubjectTeacher,
+    getSubjectDocuments
 };

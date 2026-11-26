@@ -1,6 +1,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiRequest } from "../services/api";
+import SubjectDocumentsWidget from "./SubjectDocumentsWidget";
 import "./SubjectsPage.css";
 
 // ======================================================
@@ -1320,8 +1321,17 @@ export default function SubjectsPage({
                     </button>
                   </>
                 )}
+              
               </div>
+
+              {/* [05.9] TÀI LIỆU THUỘC MÔN HỌC */}
+              <SubjectDocumentsWidget
+                token={token}
+                subjectId={subject.subject_id}
+                subjectName={subject.subject_name}
+              />
             </article>
+
           ))}
         </div>
       )}

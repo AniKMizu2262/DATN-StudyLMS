@@ -1,0 +1,143 @@
+
+/* ======================================================
+   KDOCUMENT - SUBJECT DOCUMENTS WIDGET
+   ====================================================== */
+
+.kd-subject-documents {
+  margin-top: 14px;
+}
+
+.kd-subject-documents__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd9fb;
+  border-radius: 9px;
+  background: #f5f3ff;
+  color: #6755ca;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kd-subject-documents__toggle:hover {
+  background: #eeeaff;
+}
+
+.kd-subject-documents__toggle .material-symbols-outlined {
+  font-size: 19px;
+}
+
+.kd-subject-documents__panel {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #e7e5f3;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.kd-subject-documents__header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.kd-subject-documents__header strong {
+  font-size: 13px;
+  color: #293857;
+}
+
+.kd-subject-documents__header > span {
+  color: #7c8ba3;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.kd-subject-documents__message {
+  margin: 10px 0;
+  color: #738099;
+  font-size: 12px;
+}
+
+.kd-subject-documents__message button {
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.kd-subject-documents__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 8px;
+  color: #8591a6;
+  text-align: center;
+}
+
+.kd-subject-documents__empty .material-symbols-outlined {
+  font-size: 30px;
+}
+
+.kd-subject-documents__empty p {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+.kd-subject-documents__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kd-subject-documents__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #edf0f5;
+  border-radius: 9px;
+  background: #fafbff;
+}
+
+.kd-subject-documents__item > .material-symbols-outlined {
+  color: #e35d62;
+  font-size: 24px;
+}
+
+.kd-subject-documents__info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.kd-subject-documents__info strong {
+  color: #293857;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.kd-subject-documents__info small {
+  color: #8a96a8;
+  font-size: 10px;
+}
+
+.kd-subject-documents__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.kd-subject-documents__tags span {
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: #efedff;
+  color: #6656c8;
+  font-size: 10px;
+}
