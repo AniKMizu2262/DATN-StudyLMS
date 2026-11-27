@@ -1,3 +1,4 @@
+"use strict";
 
 const {
     checkDocumentRagAccess
@@ -20,33 +21,68 @@ const {
     saveRagTurn
 } = require("../services/chatHistory.service");
 
-// ======================================================
-// KDOCUMENT - DAY 17
-// RAG CÓ TRÍCH DẪN VÀ LƯU LỊCH SỬ
-// ======================================================
+// =============================================================
+// KDOCUMENT | DAY20 - RAG CONTROLLER + KIỂM TRA NGÔN NGỮ
+//
+// Giữ nguyên các service, prompt, định dạng nguồn và JSON response.
+// Chặn ký tự Hán không có trong tài liệu/câu hỏi khi hỏi tiếng Việt.
+// Một câu hỏi chỉ được gọi LLM tối đa 2 lần (bao gồm retry nguồn).
+// =============================================================
 
 const MAX_CITATION_ATTEMPTS = 2;
+const MAX_QUESTION_LENGTH = 1000;
 
-// [01] API HỎI ĐÁP
+// Chấp nhận số nguyên dương hoặc chuỗi chữ số thập phân.
+// Không chấp nhận "1e3", "0x10", khoảng trắng hay số thập phân.
+const parsePositiveId = (value) => {
+    if (typeof value === "number") {
+        return Number.isSafeInteger(value) && value > 0 ? value : null;
+    }
+
+    if (typeof value === "string" && /^[1-9]\d*$/.test(value)) {
+        const parsed = Number(value);
+        return Number.isSafeInteger(parsed) ? parsed : null;
+    }
+
+    return null;
+};
+
+// Đánh dấu câu hỏi tiếng Việt khi có ký tự tiếng Việt có dấu.
+// Không ép các câu hỏi tiếng Anh phải trả lời bằng tiếng Việt.
+const isVietnameseQuestion = (question) => /[À-ỹ]/u.test(question);
+
+// Một số model miễn phí thỉnh thoảng trộn chữ Hán vào câu Việt,
+// ví dụ "nội dung涵蓋 Python basics".
+//
+// Chỉ chặn ký tự Hán KHÔNG xuất hiện trong tài liệu/câu hỏi:
+// nếu PDF thật sự có chữ Hán thì vẫn được trích nguyên văn.
+// Đây là kiểm tra sơ bộ, không phải bộ phát hiện ngôn ngữ hoàn chỉnh.
+const containsUnexpectedHan = (answer, question, context) => {
+    if (!isVietnameseQuestion(question)) return false;
+
+    const hanChars = answer.match(/\p{Script=Han}/gu) || [];
+
+    return hanChars.some(
+        (character) =>
+            !question.includes(character) &&
+            !context.includes(character)
+    );
+};
+
+// =============================================================
+// API HỎI ĐÁP RAG
+// Đường dẫn cụ thể do rag.routes.js định nghĩa.
+// =============================================================
+
 const askRag = async (req, res) => {
-    const {
-        document_id,
-        question,
-        session_id
-    } = req.body || {};
-
-    const documentId = Number(document_id);
-
-    // --------------------------------------------------
-    // [02] KIỂM TRA CÂU HỎI VÀ TÀI LIỆU
-    // --------------------------------------------------
+    const { document_id, question, session_id } = req.body || {};
+    const documentId = parsePositiveId(document_id);
 
     if (
-        !Number.isSafeInteger(documentId) ||
-        documentId <= 0 ||
+        documentId === null ||
         typeof question !== "string" ||
         !question.trim() ||
-        question.length > 1000
+        question.length > MAX_QUESTION_LENGTH
     ) {
         return res.status(400).json({
             success: false,
@@ -54,35 +90,22 @@ const askRag = async (req, res) => {
         });
     }
 
-    // --------------------------------------------------
-    // [03] KIỂM TRA ĐĂNG NHẬP
-    // --------------------------------------------------
+    // userId luôn lấy từ JWT, không lấy từ client body.
+    const userId = parsePositiveId(req.user?.userId);
 
-    const userId = Number(req.user?.userId);
-
-    if (
-        !Number.isSafeInteger(userId) ||
-        userId <= 0
-    ) {
+    if (userId === null) {
         return res.status(401).json({
             success: false,
             message: "Vui lòng đăng nhập"
         });
     }
 
-    // --------------------------------------------------
-    // [04] XỬ LÝ MÃ PHIÊN HỘI THOẠI
-    // --------------------------------------------------
-
     let sessionId = null;
 
     if (session_id !== undefined && session_id !== null) {
-        sessionId = Number(session_id);
+        sessionId = parsePositiveId(session_id);
 
-        if (
-            !Number.isSafeInteger(sessionId) ||
-            sessionId <= 0
-        ) {
+        if (sessionId === null) {
             return res.status(400).json({
                 success: false,
                 message: "Mã phiên hội thoại không hợp lệ"
@@ -93,29 +116,27 @@ const askRag = async (req, res) => {
     const cleanQuestion = question.trim();
 
     try {
-        // --------------------------------------------------
-        // [05] KIỂM TRA PHIÊN THUỘC NGƯỜI DÙNG
-        // --------------------------------------------------
+        // =====================================================
+        // [01] KIỂM TRA QUYỀN SỞ HỮU PHIÊN CHAT
+        // =====================================================
 
+        // Không cho người dùng truy cập phiên của tài khoản khác.
         if (sessionId !== null) {
-            const isOwner = await isOwnedSession(
-                sessionId,
-                userId
-            );
+            const owned = await isOwnedSession(sessionId, userId);
 
-            if (!isOwner) {
+            if (!owned) {
                 return res.status(404).json({
                     success: false,
-                    message:
-                        "Không tìm thấy phiên hội thoại hợp lệ"
+                    message: "Không tìm thấy phiên hội thoại hợp lệ"
                 });
             }
         }
 
-        // --------------------------------------------------
-        // [06] KIỂM TRA QUYỀN TÀI LIỆU
-        // --------------------------------------------------
+        // =====================================================
+        // [02] KIỂM TRA QUYỀN TRUY CẬP TÀI LIỆU
+        // =====================================================
 
+        // Không đọc chunks trước khi kiểm tra phân quyền.
         const document = await checkDocumentRagAccess(
             documentId,
             req.user
@@ -128,15 +149,46 @@ const askRag = async (req, res) => {
             });
         }
 
-        // --------------------------------------------------
-        // [07] HÀM LƯU VÀ TRẢ CÂU TRẢ LỜI
-        // --------------------------------------------------
+        // Việc gọi AI có thể lâu.
+        // Quyền truy cập có thể thay đổi trong thời gian đó.
+        const hasCurrentAccess = async () => Boolean(
+            await checkDocumentRagAccess(documentId, req.user)
+        );
+
+        // =====================================================
+        // [03] HÀM LƯU LỊCH SỬ VÀ TRẢ KẾT QUẢ
+        // =====================================================
 
         const saveAndRespond = async ({
             answer,
             model,
             citations
         }) => {
+            // Kiểm tra lại quyền truy cập tài liệu.
+            if (!(await hasCurrentAccess())) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Quyền truy cập tài liệu đã thay đổi"
+                });
+            }
+
+            // Kiểm tra lại phiên chat.
+            // Tránh trường hợp phiên bị xóa trong lúc AI xử lý.
+            if (sessionId !== null) {
+                const owned = await isOwnedSession(
+                    sessionId,
+                    userId
+                );
+
+                if (!owned) {
+                    return res.status(404).json({
+                        success: false,
+                        message: "Không tìm thấy phiên hội thoại hợp lệ"
+                    });
+                }
+            }
+
+            // Chỉ lưu câu trả lời sau khi đã qua kiểm tra.
             const savedSessionId = await saveRagTurn({
                 userId,
                 sessionId,
@@ -147,6 +199,7 @@ const askRag = async (req, res) => {
                 citations
             });
 
+            // Giữ nguyên JSON response để không ảnh hưởng FE.
             return res.status(200).json({
                 success: true,
                 data: {
@@ -159,32 +212,18 @@ const askRag = async (req, res) => {
             });
         };
 
-        // --------------------------------------------------
-        // [08] TRUY XUẤT NGỮ CẢNH RAG
-        // --------------------------------------------------
+        // =====================================================
+        // [04] TRUY XUẤT NGỮ CẢNH RAG
+        // =====================================================
 
+        // Giữ nguyên topK, similarity score và cách lấy nguồn.
         const rag = await buildRagContext(
             documentId,
             cleanQuestion
         );
 
-        // Không có nguồn phù hợp thì không gọi LLM.
+        // Nếu không có nội dung phù hợp, không gọi LLM.
         if (!rag.hasContext) {
-            // Kiểm tra lại quyền trước khi lưu.
-            const currentAccess =
-                await checkDocumentRagAccess(
-                    documentId,
-                    req.user
-                );
-
-            if (!currentAccess) {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        "Quyền truy cập tài liệu đã thay đổi"
-                });
-            }
-
             return await saveAndRespond({
                 answer:
                     "Không tìm thấy thông tin phù hợp " +
@@ -194,9 +233,26 @@ const askRag = async (req, res) => {
             });
         }
 
-        // --------------------------------------------------
-        // [09] DANH SÁCH NGUỒN HỢP LỆ
-        // --------------------------------------------------
+        // =====================================================
+        // [05] KIỂM TRA NGỮ CẢNH VÀ CITATIONS
+        // =====================================================
+
+        if (
+            !Array.isArray(rag.citations) ||
+            rag.citations.length === 0 ||
+            typeof rag.context !== "string" ||
+            !rag.context.trim()
+        ) {
+            console.error(
+                "[RAG] Ngữ cảnh hoặc trích dẫn không hợp lệ"
+            );
+
+            return res.status(502).json({
+                success: false,
+                message:
+                    "Không thể chuẩn bị nguồn tài liệu cho câu trả lời"
+            });
+        }
 
         const allowedSources = rag.citations
             .map(
@@ -205,22 +261,24 @@ const askRag = async (req, res) => {
             )
             .join(", ");
 
-        // --------------------------------------------------
-        // [10] GỌI LLM VÀ KIỂM TRA TRÍCH DẪN
-        // --------------------------------------------------
+        // =====================================================
+        // [06] CHUẨN BỊ CƠ CHẾ RETRY
+        // =====================================================
+
+        // Một lượt retry được dùng chung cho:
+        // - Trích dẫn sai.
+        // - Ngôn ngữ không hợp lệ.
+        //
+        // Không tăng số lượng request LLM tối đa.
+        let retryReason = null;
 
         for (
             let attempt = 1;
             attempt <= MAX_CITATION_ATTEMPTS;
             attempt++
         ) {
-            // Kiểm tra quyền trước mỗi lần sinh câu trả lời.
-            const currentAccess =
-                await checkDocumentRagAccess(
-                    documentId,
-                    req.user
-                );
-            if (!currentAccess) {
+            // Kiểm tra quyền trước mỗi lần gửi context sang AI.
+            if (!(await hasCurrentAccess())) {
                 return res.status(403).json({
                     success: false,
                     message:
@@ -228,15 +286,36 @@ const askRag = async (req, res) => {
                 });
             }
 
-            // Lần thứ hai yêu cầu trích dẫn chặt chẽ hơn.
-            
-// ======================================================
-// [04] TỐI ƯU CÂU HỎI GỬI ĐẾN LLM
-//
-// Áp dụng định dạng trích dẫn ngay từ lượt đầu.
-// Ưu tiên diễn đạt tiếng Việt tự nhiên.
-// ======================================================
+            // =================================================
+            // [07] THÔNG BÁO CHO LƯỢT THỬ LẠI
+            // =================================================
 
+            // Nếu AI dùng sai ngôn ngữ:
+            // nhắc viết lại bằng tiếng Việt.
+            //
+            // Nếu AI dẫn sai nguồn:
+            // nhắc dùng đúng mã nguồn.
+            //
+            // Lượt đầu tiên không có phần này.
+            const retryInstruction = retryReason === "language"
+                ? [
+                    "Câu trả lời trước có ký tự Hán không có trong tài liệu.",
+                    "Viết lại hoàn toàn bằng tiếng Việt tự nhiên.",
+                    "Giữ nguyên ý đúng và các mã trích dẫn hợp lệ.",
+                    "Không chèn chữ Trung Quốc hoặc Nhật Bản."
+                ]
+                : [
+                    "Câu trả lời trước chưa đạt kiểm tra trích dẫn.",
+                    "Hãy tuân thủ chính xác định dạng nguồn.",
+                    "Không bỏ qua trích dẫn."
+                ];
+
+            // =================================================
+            // [08] PROMPT GỬI CHO LLM
+            // =================================================
+
+            // Giữ nguyên nội dung yêu cầu Day19 ở lượt đầu.
+            // Chỉ bổ sung chỉ dẫn retry khi phát hiện lỗi.
             const llmQuestion = [
                 "CÂU HỎI CỦA NGƯỜI DÙNG:",
                 cleanQuestion,
@@ -276,29 +355,27 @@ const askRag = async (req, res) => {
                     ? [
                         "",
                         "LƯU Ý QUAN TRỌNG:",
-                        "Câu trả lời trước chưa đạt kiểm tra trích dẫn.",
-                        "Hãy tuân thủ chính xác định dạng nguồn.",
-                        "Không bỏ qua trích dẫn."
+                        ...retryInstruction
                     ]
                     : [])
             ].join("\n");
-
 
             console.log(
                 `[RAG] Kiểm tra câu trả lời ${attempt}/${MAX_CITATION_ATTEMPTS}`
             );
 
-            let answerResult;
+            // =================================================
+            // [09] GỌI DỊCH VỤ OPENROUTER
+            // =================================================
 
-            // ----------------------------------------------
-            // [11] SINH CÂU TRẢ LỜI
-            // ----------------------------------------------
+            let answerResult;
 
             try {
                 answerResult = await generateAnswer(
                     llmQuestion,
                     rag.context
                 );
+
             } catch (error) {
                 console.error(
                     "[RAG] Lỗi dịch vụ LLM:",
@@ -313,9 +390,9 @@ const askRag = async (req, res) => {
                 });
             }
 
-            // ----------------------------------------------
-            // [12] KIỂM TRA TRÍCH DẪN
-            // ----------------------------------------------
+            // =================================================
+            // [10] KIỂM TRA NGUỒN TRÍCH DẪN
+            // =================================================
 
             let citationCheck;
 
@@ -324,16 +401,15 @@ const askRag = async (req, res) => {
                     answerResult.answer,
                     rag.citations
                 );
+
             } catch (error) {
                 console.warn(
-                    `[RAG] Trích dẫn không hợp lệ ở lượt ${attempt}:`,
-                    error.message
+                    `[RAG] Trích dẫn không đạt (lượt ${attempt}): ${error.message}`
                 );
 
+                retryReason = "citation";
+
                 if (attempt < MAX_CITATION_ATTEMPTS) {
-                    console.log(
-                        "[RAG] Đang yêu cầu AI tạo lại trích dẫn..."
-                    );
                     continue;
                 }
 
@@ -345,39 +421,75 @@ const askRag = async (req, res) => {
                 });
             }
 
-            // ----------------------------------------------
-            // [13] KIỂM TRA QUYỀN TRƯỚC KHI TRẢ KẾT QUẢ
-            // ----------------------------------------------
+            // =================================================
+            // [11] KIỂM TRA NGÔN NGỮ ĐẦU RA
+            // =================================================
 
-            const finalAccess =
-                await checkDocumentRagAccess(
-                    documentId,
-                    req.user
+            // Đây là lớp bảo vệ mới của Day20.
+            //
+            // Ví dụ phát hiện:
+            // "nội dung涵蓋 Python basics [NGUỒN 1]"
+            //
+            // Nếu ký tự Hán không nằm trong câu hỏi hoặc
+            // ngữ cảnh PDF thì không cho lưu/trả câu trả lời.
+            //
+            // Không tự ý xóa hoặc thay thế chữ Hán vì
+            // thao tác đó có thể làm sai ý nghĩa nội dung.
+            if (containsUnexpectedHan(
+                answerResult.answer,
+                cleanQuestion,
+                rag.context
+            )) {
+                console.warn(
+                    `[RAG] Ngôn ngữ không đạt: ` +
+                    `xuất hiện chữ Hán ngoài tài liệu ` +
+                    `(lượt ${attempt})`
                 );
 
-            if (!finalAccess) {
-                return res.status(403).json({
+                retryReason = "language";
+
+                if (attempt < MAX_CITATION_ATTEMPTS) {
+                    // Cho AI một cơ hội viết lại.
+                    continue;
+                }
+
+                // Không đưa câu trả lời sai ngôn ngữ lên FE.
+                return res.status(502).json({
                     success: false,
                     message:
-                        "Quyền truy cập tài liệu đã thay đổi"
+                        "AI chưa tạo được câu trả lời " +
+                        "đúng ngôn ngữ. Vui lòng thử lại sau."
                 });
             }
 
+            // =================================================
+            // [12] KẾT QUẢ ĐÃ VƯỢT QUA KIỂM TRA
+            // =================================================
+
             console.log(
-                `[RAG] Câu trả lời đạt kiểm tra trích dẫn ở lượt ${attempt}`
+                `[RAG] Câu trả lời đạt kiểm tra nguồn ` +
+                `và ngôn ngữ ở lượt ${attempt}`
             );
 
-            // ----------------------------------------------
-            // [14] LƯU VÀ TRẢ CÂU TRẢ LỜI
-            // ----------------------------------------------
-
+            // Chỉ đến đây mới lưu lịch sử và trả lời.
             return await saveAndRespond({
                 answer: answerResult.answer,
                 model: answerResult.model,
                 citations: citationCheck.usedCitations
             });
         }
+
+        // Nhánh dự phòng, thông thường không chạy tới đây.
+        return res.status(502).json({
+            success: false,
+            message: "AI chưa tạo được câu trả lời hợp lệ."
+        });
+
     } catch (error) {
+        // =====================================================
+        // [13] XỬ LÝ LỖI TỔNG QUÁT
+        // =====================================================
+
         console.error(
             "[RAG] Lỗi xử lý hoặc lưu lịch sử:",
             error.message
@@ -392,9 +504,9 @@ const askRag = async (req, res) => {
     }
 };
 
-// ======================================================
-// [15] EXPORT
-// ======================================================
+// =============================================================
+// EXPORT CONTROLLER
+// =============================================================
 
 module.exports = {
     askRag

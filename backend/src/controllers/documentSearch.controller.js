@@ -1,13 +1,36 @@
+"use strict";
 
 const pool = require("../config/database");
 
 // ======================================================
-// KDOCUMENT - TÌM KIẾM VÀ LỌC TÀI LIỆU
-// Day10 - API: GET /api/documents/search
+// KDOCUMENT | DAY20 - TÌM KIẾM VÀ LỌC TÀI LIỆU
+//
+// API: GET /api/documents/search
+//
+// Nhiệm vụ:
+// 1. Kiểm tra từ khóa và các bộ lọc.
+// 2. Xác định tài liệu được phép truy cập theo vai trò.
+// 3. Tìm kiếm bằng SQL có tham số.
+// 4. Chỉ trả về tối đa 50 tài liệu.
+//
+// QUY TẮC PHÂN QUYỀN:
+// - STUDENT: Tài liệu công khai, READY, APPROVED.
+// - TEACHER: Tài liệu công khai + môn được phân công.
+// - ADMIN: Tài liệu công khai + tài liệu dùng chung.
+// - Không trả về tài liệu đã xóa mềm.
+//
+// Giữ nguyên cấu trúc JSON cho frontend.
 // ======================================================
 
-// [01] DANH SÁCH GIÁ TRỊ HỢP LỆ
-const validDocumentTypes = [
+// ======================================================
+// [A] CẤU HÌNH
+// ======================================================
+
+const MAX_SEARCH_LENGTH = 100;
+const MAX_SEARCH_RESULTS = 50;
+
+// Những giá trị phân loại được hệ thống hỗ trợ.
+const VALID_DOCUMENT_TYPES = [
     "LECTURE",
     "REFERENCE",
     "QUESTION_BANK",
@@ -15,45 +38,184 @@ const validDocumentTypes = [
     "OTHER"
 ];
 
-const validSourceTypes = [
+const VALID_SOURCE_TYPES = [
     "OFFICIAL",
     "SUPPLEMENTARY"
 ];
 
-// [02] XỬ LÝ TÌM KIẾM
+const VALID_ROLES = [
+    "ADMIN",
+    "TEACHER",
+    "STUDENT"
+];
+
+// ======================================================
+// [B] HÀM HỖ TRỢ
+// ======================================================
+
+// Kiểm tra ID môn học.
+//
+// Chỉ chấp nhận chuỗi số nguyên dương hệ thập phân.
+// Ví dụ:
+// "2"    -> hợp lệ
+// "0"    -> không hợp lệ
+// "-1"   -> không hợp lệ
+// "1e3"  -> không hợp lệ
+// "0x10" -> không hợp lệ
+const parseSubjectId = (value) => {
+
+    if (
+        typeof value !== "string" ||
+        !/^[1-9]\d*$/.test(value)
+    ) {
+        return null;
+    }
+
+    const id = Number(value);
+
+    return Number.isSafeInteger(id)
+        ? id
+        : null;
+};
+
+// Kiểm tra ID của người dùng.
+//
+// ID được lấy từ middleware xác thực JWT,
+// không lấy từ query do client tự truyền lên.
+const isValidUserId = (value) => {
+
+    const id = Number(value);
+
+    return (
+        value !== null &&
+        value !== undefined &&
+        value !== "" &&
+        Number.isSafeInteger(id) &&
+        id > 0
+    );
+};
+
+// Escape ký tự đặc biệt trong LIKE.
+//
+// MySQL LIKE sử dụng:
+// % : Khớp nhiều ký tự
+// _ : Khớp một ký tự
+//
+// Nếu người dùng tìm "C++_01", hệ thống cần
+// tìm đúng dấu "_" thay vì coi là wildcard.
+//
+// Sử dụng ký tự ! làm escape cho LIKE.
+const escapeLikeKeyword = (keyword) => {
+
+    return keyword.replace(
+        /[!%_]/g,
+        (char) => `!${char}`
+    );
+};
+
+// ======================================================
+// [C] API TÌM KIẾM TÀI LIỆU
+// ======================================================
+
 const searchDocuments = async (req, res) => {
+
     try {
-        // Lấy bộ lọc từ URL
+
+        // ==================================================
+        // [01] KIỂM TRA XÁC THỰC
+        // ==================================================
+
+        // Route đã có verifyToken.
+        // Kiểm tra thêm để tránh req.user bị undefined
+        // nếu controller được gọi từ nơi khác.
+        if (!req.user) {
+
+            return res.status(401).json({
+                success: false,
+                message: "Vui lòng đăng nhập"
+            });
+        }
+
+        const role = req.user.role;
+        const userId = req.user.userId;
+
+        if (!VALID_ROLES.includes(role)) {
+
+            return res.status(403).json({
+                success: false,
+                message: "Bạn không có quyền tìm kiếm tài liệu"
+            });
+        }
+
+        // Teacher cần userId để kiểm tra môn phụ trách.
+        //
+        // Nếu JWT không chứa ID hợp lệ thì không được
+        // chạy truy vấn phân quyền.
+        if (
+            role === "TEACHER" &&
+            !isValidUserId(userId)
+        ) {
+
+            return res.status(401).json({
+                success: false,
+                message: "Thông tin xác thực không hợp lệ"
+            });
+        }
+
+        // ==================================================
+        // [02] LẤY THAM SỐ TỪ QUERY
+        // ==================================================
+
         const {
             q = "",
             subject_id,
             document_type,
             source_type
-        } = req.query;
+        } = req.query || {};
 
-        // ----------------------------------------------
-        // 2.1. Kiểm tra từ khóa
-        // ----------------------------------------------
-        if (typeof q !== "string" || q.trim().length > 100) {
+        // ==================================================
+        // [03] KIỂM TRA TỪ KHÓA
+        // ==================================================
+
+        // Không cho phép object hoặc array làm từ khóa.
+        //
+        // Ví dụ q[]=abc có thể tạo thành array,
+        // nhưng API chỉ hỗ trợ một chuỗi tìm kiếm.
+        if (typeof q !== "string") {
+
+            return res.status(400).json({
+                success: false,
+                message: "Từ khóa tìm kiếm không hợp lệ"
+            });
+        }
+
+        const keyword = q.trim();
+
+        if (keyword.length > MAX_SEARCH_LENGTH) {
+
             return res.status(400).json({
                 success: false,
                 message: "Từ khóa tìm kiếm không hợp lệ hoặc quá 100 ký tự"
             });
         }
 
-        // ----------------------------------------------
-        // 2.2. Kiểm tra các bộ lọc
-        // ----------------------------------------------
+        // ==================================================
+        // [04] KIỂM TRA SUBJECT ID
+        // ==================================================
+
         let subjectId = null;
 
-        if (subject_id !== undefined && subject_id !== "") {
-            subjectId = Number(subject_id);
+        // Không truyền subject_id nghĩa là tìm toàn hệ thống
+        // trong phạm vi quyền của người dùng.
+        if (
+            subject_id !== undefined &&
+            subject_id !== ""
+        ) {
 
-            if (
-                typeof subject_id !== "string" ||
-                !/^[1-9]\d*$/.test(subject_id) ||
-                !Number.isSafeInteger(subjectId)
-            ) {
+            subjectId = parseSubjectId(subject_id);
+
+            if (subjectId === null) {
+
                 return res.status(400).json({
                     success: false,
                     message: "Mã môn học không hợp lệ"
@@ -61,44 +223,107 @@ const searchDocuments = async (req, res) => {
             }
         }
 
+        // ==================================================
+        // [05] KIỂM TRA DOCUMENT TYPE
+        // ==================================================
+
         if (
             document_type !== undefined &&
             document_type !== "" &&
-            !validDocumentTypes.includes(document_type)
+            !VALID_DOCUMENT_TYPES.includes(document_type)
         ) {
+
             return res.status(400).json({
                 success: false,
                 message: "Loại tài liệu không hợp lệ"
             });
         }
 
+        // ==================================================
+        // [06] KIỂM TRA SOURCE TYPE
+        // ==================================================
+
         if (
             source_type !== undefined &&
             source_type !== "" &&
-            !validSourceTypes.includes(source_type)
+            !VALID_SOURCE_TYPES.includes(source_type)
         ) {
+
             return res.status(400).json({
                 success: false,
                 message: "Nguồn tài liệu không hợp lệ"
             });
         }
 
-        // ----------------------------------------------
-        // 2.3. Kiểm tra vai trò người dùng
-        // ----------------------------------------------
-        const role = req.user?.role;
-        const userId = req.user?.userId;
+        // ==================================================
+        // [07] XÂY DỰNG ĐIỀU KIỆN PHÂN QUYỀN
+        // ==================================================
 
-        if (!["STUDENT", "TEACHER", "ADMIN"].includes(role)) {
-            return res.status(403).json({
-                success: false,
-                message: "Bạn không có quyền tìm kiếm tài liệu"
-            });
+        // Tài liệu công khai là tài liệu đáp ứng đủ:
+        // PUBLIC + READY + APPROVED.
+        //
+        // Mọi vai trò hợp lệ đều được xem.
+        const accessConditions = [
+
+            `(
+                d.visibility = 'PUBLIC'
+                AND d.status = 'READY'
+                AND d.review_status = 'APPROVED'
+            )`
+
+        ];
+
+        const params = [];
+
+        // --------------------------------------------------
+        // TEACHER
+        // --------------------------------------------------
+
+        if (role === "TEACHER") {
+
+            // Teacher xem thêm tài liệu của những môn
+            // đang được phân công phụ trách.
+            //
+            // Không phụ thuộc visibility hoặc review_status
+            // vì Teacher có quyền quản lý các tài liệu đó.
+            accessConditions.push(
+                `EXISTS (
+                    SELECT 1
+                    FROM subject_teachers st
+                    WHERE st.subject_id = d.subject_id
+                      AND st.teacher_id = ?
+                )`
+            );
+
+            params.push(Number(userId));
         }
 
-        // ----------------------------------------------
-        // 2.4. Truy vấn tài liệu có phân quyền
-        // ----------------------------------------------
+        // --------------------------------------------------
+        // ADMIN
+        // --------------------------------------------------
+
+        if (role === "ADMIN") {
+
+            // Admin xem thêm tài liệu dùng chung.
+            //
+            // Không tự động cấp Admin quyền xem mọi
+            // tài liệu PRIVATE thuộc môn của Teacher.
+            accessConditions.push(
+                "d.subject_id IS NULL"
+            );
+        }
+
+        // --------------------------------------------------
+        // STUDENT
+        // --------------------------------------------------
+
+        // Student không được thêm điều kiện truy cập.
+        // Vì vậy chỉ thấy tài liệu công khai hợp lệ.
+
+        // ==================================================
+        // [08] TẠO TRUY VẤN CHÍNH
+        // ==================================================
+
         let sql = `
             SELECT
                 d.document_id,
@@ -114,43 +339,31 @@ const searchDocuments = async (req, res) => {
                 d.status,
                 d.review_status,
                 d.created_at
+
             FROM documents d
+
             LEFT JOIN subjects s
                 ON d.subject_id = s.subject_id
+
             WHERE d.deleted_at IS NULL
+
               AND (
-                  (
-                      d.visibility = 'PUBLIC'
-                      AND d.status = 'READY'
-                      AND d.review_status = 'APPROVED'
-                  )
-                  OR (
-                      ? = 'TEACHER'
-                      AND EXISTS (
-                          SELECT 1
-                          FROM subject_teachers st
-                          WHERE st.subject_id = d.subject_id
-                            AND st.teacher_id = ?
-                      )
-                  )
-                  OR (
-                      ? = 'ADMIN'
-                      AND d.subject_id IS NULL
-                  )
+                  ${accessConditions.join(" OR ")}
               )
         `;
 
-        const params = [role, userId, role];
+        // ==================================================
+        // [09] TÌM THEO TỪ KHÓA
+        // ==================================================
 
-        // ----------------------------------------------
-        // 2.5. Tìm theo từ khóa
-        // ----------------------------------------------
-        if (q.trim()) {
-            // Coi %, _ và ! là ký tự thường, không phải wildcard.
-            const keyword = `%${q.trim().replace(
-                /[!%_]/g,
-                (char) => `!${char}`
-            )}%`;
+        if (keyword) {
+
+            // Escape ký tự LIKE đặc biệt.
+            //
+            // Giá trị vẫn được truyền qua placeholder (?),
+            // không nối trực tiếp dữ liệu người dùng vào SQL.
+            const searchPattern =
+                `%${escapeLikeKeyword(keyword)}%`;
 
             sql += `
                 AND (
@@ -160,42 +373,91 @@ const searchDocuments = async (req, res) => {
                 )
             `;
 
-            params.push(keyword, keyword, keyword);
+            params.push(
+                searchPattern,
+                searchPattern,
+                searchPattern
+            );
         }
 
-        // ----------------------------------------------
-        // 2.6. Lọc theo môn học
-        // ----------------------------------------------
+        // ==================================================
+        // [10] LỌC THEO MÔN HỌC
+        // ==================================================
+
         if (subjectId !== null) {
-            sql += " AND d.subject_id = ?";
+
+            sql += `
+                AND d.subject_id = ?
+            `;
+
             params.push(subjectId);
         }
 
-        // ----------------------------------------------
-        // 2.7. Lọc theo loại tài liệu
-        // ----------------------------------------------
-        if (document_type) {
-            sql += " AND d.document_type = ?";
+        // ==================================================
+        // [11] LỌC THEO LOẠI TÀI LIỆU
+        // ==================================================
+
+        if (
+            document_type !== undefined &&
+            document_type !== ""
+        ) {
+
+            sql += `
+                AND d.document_type = ?
+            `;
+
             params.push(document_type);
         }
 
-        // ----------------------------------------------
-        // 2.8. Lọc theo nguồn tài liệu
-        // ----------------------------------------------
-        if (source_type) {
-            sql += " AND d.source_type = ?";
+        // ==================================================
+        // [12] LỌC THEO NGUỒN TÀI LIỆU
+        // ==================================================
+
+        if (
+            source_type !== undefined &&
+            source_type !== ""
+        ) {
+
+            sql += `
+                AND d.source_type = ?
+            `;
+
             params.push(source_type);
         }
 
-        // ----------------------------------------------
-        // 2.9. Sắp xếp và giới hạn kết quả
-        // ----------------------------------------------
+        // ==================================================
+        // [13] SẮP XẾP VÀ GIỚI HẠN KẾT QUẢ
+        // ==================================================
+
+        // Giữ giới hạn 50 kết quả như Day10.
+        //
+        // Chưa thêm pagination vì frontend hiện tại
+        // chưa được kiểm tra cơ chế phân trang.
+        //
+        // Không tự ý thay đổi response count.
         sql += `
-            ORDER BY d.created_at DESC, d.document_id DESC
-            LIMIT 50
+            ORDER BY
+                d.created_at DESC,
+                d.document_id DESC
+            LIMIT ${MAX_SEARCH_RESULTS}
         `;
 
-        const [rows] = await pool.query(sql, params);
+        // ==================================================
+        // [14] THỰC HIỆN TRUY VẤN
+        // ==================================================
+
+        // pool.query truyền params an toàn vào placeholder.
+        //
+        // Các nhánh điều kiện quyền được tạo từ role
+        // đã kiểm tra, không phải chuỗi tùy ý của client.
+        const [rows] = await pool.query(
+            sql,
+            params
+        );
+
+        // ==================================================
+        // [15] TRẢ KẾT QUẢ
+        // ==================================================
 
         return res.status(200).json({
             success: true,
@@ -205,7 +467,11 @@ const searchDocuments = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Search documents error:", error.message);
+
+        console.error(
+            "[DOCUMENT SEARCH ERROR]",
+            error
+        );
 
         return res.status(500).json({
             success: false,
@@ -215,7 +481,7 @@ const searchDocuments = async (req, res) => {
 };
 
 // ======================================================
-// XUẤT CONTROLLER
+// [D] EXPORT CONTROLLER
 // ======================================================
 
 module.exports = {

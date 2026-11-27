@@ -1,19 +1,26 @@
 "use strict";
 
-// ======================================================
-// KDOCUMENT - LLM SERVICE
-// OpenRouter + 3 Model Fallback + Token Monitoring
-// ======================================================
+// =============================================================
+// KDOCUMENT | LLM SERVICE - GEMINI + OPENROUTER
+//
+// Gemini API trực tiếp: ưu tiên đầu tiên.
+// OpenRouter: dự phòng khi Gemini gặp lỗi.
+//
+// Không thay đổi giao diện generateAnswer(question, context)
+// mà rag.controller.js đang sử dụng.
+// =============================================================
 
-// [01] CẤU HÌNH
-const API_URL =
+const OPENROUTER_URL =
     "https://openrouter.ai/api/v1/chat/completions";
 
+const GEMINI_BASE_URL =
+    "https://generativelanguage.googleapis.com/v1beta/models";
+
 const MAX_OUTPUT_TOKENS = 4000;
-const TIMEOUT_MS = 45000;
+const OPENROUTER_TIMEOUT_MS = 45000;
+const GEMINI_TIMEOUT_MS = 25000;
 const RETRY_DELAY_MS = 1000;
 
-// Các lỗi HTTP có thể thử model tiếp theo.
 const RETRYABLE_STATUS = new Set([
     408, 429, 500, 502, 503, 504, 529
 ]);
@@ -21,9 +28,11 @@ const RETRYABLE_STATUS = new Set([
 const sleep = (ms) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
-// ======================================================
-// [02] SYSTEM PROMPT
-// ======================================================
+let llmRequestCounter = 0;
+
+// =============================================================
+// [A] SYSTEM PROMPT - GIỮ NGUYÊN
+// =============================================================
 
 const SYSTEM_PROMPT = `
 Bạn là Kdocument AI, trợ lý học tập cho sinh viên Việt Nam.
@@ -82,124 +91,271 @@ với câu hỏi so sánh. Không thêm kết luận
 không có căn cứ trong nguồn.
 `.trim();
 
-// ======================================================
-// [03] ĐỌC NỘI DUNG AI
-// ======================================================
+// =============================================================
+// [B] HÀM HỖ TRỢ LOG VÀ XỬ LÝ CÂU TRẢ LỜI
+// =============================================================
 
-const extractAnswer = (rawContent) => {
-    if (typeof rawContent === "string") {
-        return rawContent.trim();
+// Rút gọn lỗi thành một dòng để terminal dễ đọc.
+// Không ghi câu hỏi, nội dung tài liệu hay API key.
+const oneLine = (value, maxLength = 140) => {
+    const text = String(value ?? "Unknown")
+        .replace(/[\r\n\t]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    return text.length > maxLength
+        ? `${text.slice(0, maxLength - 3)}...`
+        : text;
+};
+
+const duration = (startedAt) =>
+    `${((Date.now() - startedAt) / 1000).toFixed(1)}s`;
+
+// OpenRouter có thể trả content dạng chuỗi hoặc mảng.
+const extractOpenRouterAnswer = (content) => {
+    if (typeof content === "string") {
+        return content.trim();
     }
 
-    if (!Array.isArray(rawContent)) {
+    if (!Array.isArray(content)) {
         return "";
     }
 
-    return rawContent
+    return content
         .filter(
-            (item) =>
-                item?.type === "text" &&
-                typeof item.text === "string"
+            (part) =>
+                part?.type === "text" &&
+                typeof part.text === "string"
         )
-        .map((item) => item.text)
+        .map((part) => part.text)
         .join("\n")
         .trim();
 };
 
-// ======================================================
-// [04] THEO DÕI TOKEN
-// ======================================================
+// Gemini Native API trả văn bản trong candidates[].content.parts.
+// Không lấy những phần được đánh dấu là thought.
+const extractGeminiAnswer = (candidate) => {
+    const parts = candidate?.content?.parts;
 
-const logUsage = (data, choice, requestedModel) => {
-    const usage = data?.usage || {};
+    if (!Array.isArray(parts)) {
+        return "";
+    }
 
-    console.log("[LLM] Token usage:", {
-        requested_model: requestedModel,
-        actual_model: data?.model || null,
-
-        finish_reason:
-            choice?.finish_reason ?? null,
-
-        prompt_tokens:
-            usage.prompt_tokens ?? null,
-
-        completion_tokens:
-            usage.completion_tokens ?? null,
-
-        reasoning_tokens:
-            usage.completion_tokens_details
-                ?.reasoning_tokens ?? null,
-
-        total_tokens:
-            usage.total_tokens ?? null,
-
-        cost:
-            usage.cost ?? null
-    });
+    return parts
+        .filter(
+            (part) =>
+                !part?.thought &&
+                typeof part?.text === "string"
+        )
+        .map((part) => part.text)
+        .join("\n")
+        .trim();
 };
 
-// ======================================================
-// [05] TẠO CÂU TRẢ LỜI
-// ======================================================
+// =============================================================
+// [C] GỌI GEMINI API TRỰC TIẾP
+// =============================================================
 
-const generateAnswer = async (question, context) => {
+const tryGemini = async ({
+    apiKey,
+    model,
+    question,
+    context,
+    log,
+    debug
+}) => {
+    const startedAt = Date.now();
 
-    // [05.1] Kiểm tra đầu vào.
+    // Gemini chỉ được chờ tối đa 25 giây.
+    // Nếu chậm quá sẽ thử OpenRouter.
+    const signal = AbortSignal.timeout(
+        GEMINI_TIMEOUT_MS
+    );
+
+    const url =
+        `${GEMINI_BASE_URL}/` +
+        `${encodeURIComponent(model)}:generateContent`;
+
+    log("info", `GEMINI TRY: ${model}`);
+
+    let response;
+    let rawBody;
+
+    try {
+        response = await fetch(url, {
+            method: "POST",
+
+            headers: {
+                "x-goog-api-key": apiKey,
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+
+                // Chỉ dẫn hệ thống giống OpenRouter.
+                systemInstruction: {
+                    parts: [
+                        { text: SYSTEM_PROMPT }
+                    ]
+                },
+
+                // Nội dung RAG do hệ thống truy xuất.
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            {
+                                text:
+                                    `CÂU HỎI:\n${question}\n\n` +
+                                    `NGỮ CẢNH TÀI LIỆU:\n${context}`
+                            }
+                        ]
+                    }
+                ],
+
+                generationConfig: {
+                    temperature: 0.2,
+                    maxOutputTokens: MAX_OUTPUT_TOKENS
+                }
+            }),
+
+            signal
+        });
+
+        rawBody = await response.text();
+
+    } catch (error) {
+        const reason = signal.aborted
+            ? "TIMEOUT"
+            : "NETWORK";
+
+        log(
+            "warn",
+            `GEMINI ERROR: ${reason} | ` +
+            `${duration(startedAt)} | ` +
+            oneLine(error?.message)
+        );
+
+        return null;
+    }
+
+    // ---------------------------------------------------------
+    // KIỂM TRA JSON
+    // ---------------------------------------------------------
+
+    let data;
+
+    try {
+        data = JSON.parse(rawBody);
+
+    } catch (_) {
+        log(
+            "warn",
+            `GEMINI ERROR: INVALID_JSON | ` +
+            `HTTP ${response.status} | ` +
+            duration(startedAt)
+        );
+
+        return null;
+    }
+
+    // ---------------------------------------------------------
+    // KIỂM TRA LỖI HTTP
+    // ---------------------------------------------------------
+
+    if (!response.ok || data?.error) {
+        const message =
+            data?.error?.message ||
+            `HTTP ${response.status}`;
+
+        log(
+            "warn",
+            `GEMINI ERROR: HTTP ${response.status} | ` +
+            `${oneLine(message)} | ` +
+            duration(startedAt)
+        );
+
+        if (debug) {
+            log(
+                "info",
+                `GEMINI DETAIL: status=${
+                    oneLine(data?.error?.status ?? "?")
+                }`
+            );
+        }
+
+        return null;
+    }
+
+    // ---------------------------------------------------------
+    // ĐỌC CÂU TRẢ LỜI
+    // ---------------------------------------------------------
+
+    const candidate = data?.candidates?.[0];
+
+    const answer = extractGeminiAnswer(
+        candidate
+    );
+
+    const finishReason =
+        candidate?.finishReason || "?";
+
     if (
-        typeof question !== "string" ||
-        !question.trim() ||
-        typeof context !== "string" ||
-        !context.trim()
+        !answer ||
+        finishReason === "MAX_TOKENS"
     ) {
-        throw new Error(
-            "Câu hỏi hoặc ngữ cảnh RAG không hợp lệ"
+        log(
+            "warn",
+            `GEMINI ERROR: EMPTY_OR_TRUNCATED | ` +
+            `finish=${finishReason} | ` +
+            duration(startedAt)
         );
+
+        return null;
     }
 
-    // [05.2] Đọc cấu hình.
-    const apiKey =
-        process.env.OPENROUTER_API_KEY?.trim();
+    // ---------------------------------------------------------
+    // THỐNG KÊ TOKEN
+    // ---------------------------------------------------------
 
-    const primaryModel =
-        process.env.OPENROUTER_MODEL?.trim();
+    const usage = data?.usageMetadata || {};
 
-    const fallbackModel =
-        process.env.OPENROUTER_FALLBACK_MODEL?.trim() ||
-        "google/gemma-3-27b-it:free";
+    log(
+        "info",
+        `GEMINI TOKENS: ` +
+        `in=${usage.promptTokenCount ?? "?"} ` +
+        `out=${usage.candidatesTokenCount ?? "?"} ` +
+        `thinking=${usage.thoughtsTokenCount ?? "?"} ` +
+        `total=${usage.totalTokenCount ?? "?"}`
+    );
 
-    const autoModel =
-        process.env.OPENROUTER_AUTO_MODEL?.trim() ||
-        "openrouter/free";
+    log(
+        "info",
+        `GEMINI SUCCESS: ` +
+        `${data.modelVersion || model} | ` +
+        duration(startedAt)
+    );
 
-    if (!apiKey || apiKey === "null") {
-        throw new Error(
-            "Chưa cấu hình OPENROUTER_API_KEY hợp lệ"
-        );
-    }
+    // Đảm bảo frontend vẫn nhận được model và answer.
+    return {
+        answer,
+        model: `google/${data.modelVersion || model}`
+    };
+};
 
-    if (!primaryModel) {
-        throw new Error(
-            "Chưa cấu hình OPENROUTER_MODEL"
-        );
-    }
+// =============================================================
+// [D] OPENROUTER - DỰ PHÒNG
+// =============================================================
 
-    // [05.3] Danh sách tối đa 3 model.
-    // Loại các model bị trùng nhau.
-    const models = [
-        ...new Set([
-            primaryModel,
-            fallbackModel,
-            autoModel
-        ])
-    ].slice(0, 3);
-
-    console.log("[LLM] Model fallback:", models);
-
+const tryOpenRouter = async ({
+    apiKey,
+    models,
+    question,
+    context,
+    log,
+    debug
+}) => {
     let lastError = "Dịch vụ AI chưa phản hồi";
-
-    // ==================================================
-    // [06] THỬ LẦN LƯỢT TỪNG MODEL
-    // ==================================================
 
     for (
         let index = 0;
@@ -211,95 +367,86 @@ const generateAnswer = async (question, context) => {
         const isLast =
             index === models.length - 1;
 
-        // Timeout cho cả fetch và đọc body.
+        const startedAt = Date.now();
+
         const signal = AbortSignal.timeout(
-            TIMEOUT_MS
+            OPENROUTER_TIMEOUT_MS
         );
 
-        const startTime = Date.now();
-
-        console.log(
-            `[LLM] Model ${index + 1}/${models.length}: ${model}`
+        log(
+            "info",
+            `OPENROUTER TRY ${index + 1}/${models.length}: ${model}`
         );
 
         let response;
-        let rawBody = "";
+        let rawBody;
 
-        // ==============================================
-        // [06.1] GỬI REQUEST VÀ ĐỌC BODY
-        // ==============================================
+        // -----------------------------------------------------
+        // GỬI REQUEST
+        // -----------------------------------------------------
 
         try {
-            response = await fetch(API_URL, {
-                method: "POST",
-
-                headers: {
-                    Authorization: `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                    "X-OpenRouter-Title": "Kdocument"
-                },
-
-                body: JSON.stringify({
-                    model,
-
-                    messages: [
-                        {
-                            role: "system",
-                            content: SYSTEM_PROMPT
-                        },
-                        {
-                            role: "user",
-                            content:
-                                `CÂU HỎI:\n${question.trim()}\n\n` +
-                                `NGỮ CẢNH TÀI LIỆU:\n${context.trim()}`
-                        }
-                    ],
-
-                    temperature: 0.2,
-                    max_tokens: MAX_OUTPUT_TOKENS,
-                    stream: false
-                }),
-
-                signal
-            });
-
-            // Đọc toàn bộ body.
-            rawBody = await response.text();
-
-        } catch (error) {
-            const timedOut = signal.aborted;
-
-            lastError = timedOut
-                ? `Model ${model} quá thời gian phản hồi`
-                : `Lỗi kết nối/đọc phản hồi từ ${model}`;
-
-            console.warn(
-                "[LLM] Lỗi nhận phản hồi:",
+            response = await fetch(
+                OPENROUTER_URL,
                 {
-                    model,
+                    method: "POST",
 
-                    http_status:
-                        response?.status ?? null,
+                    headers: {
+                        Authorization: `Bearer ${apiKey}`,
+                        "Content-Type": "application/json",
+                        "X-OpenRouter-Title": "Kdocument"
+                    },
 
-                    phase: response
-                        ? "reading_body"
-                        : "connecting",
+                    body: JSON.stringify({
+                        model,
 
-                    timed_out: timedOut,
+                        messages: [
+                            {
+                                role: "system",
+                                content: SYSTEM_PROMPT
+                            },
+                            {
+                                role: "user",
+                                content:
+                                    `CÂU HỎI:\n${question}\n\n` +
+                                    `NGỮ CẢNH TÀI LIỆU:\n${context}`
+                            }
+                        ],
 
-                    elapsed_ms:
-                        Date.now() - startTime,
+                        temperature: 0.2,
+                        max_tokens: MAX_OUTPUT_TOKENS,
+                        stream: false
+                    }),
 
-                    error:
-                        error instanceof Error
-                            ? error.message
-                            : "Unknown"
+                    signal
                 }
             );
 
+            rawBody = await response.text();
+
+        } catch (error) {
+            lastError = signal.aborted
+                ? `Model ${model} quá thời gian phản hồi`
+                : `Lỗi kết nối/đọc phản hồi từ ${model}`;
+
+            log(
+                "warn",
+                `OPENROUTER ERROR: ` +
+                `${signal.aborted ? "TIMEOUT" : "NETWORK"} | ` +
+                `${model} | ${duration(startedAt)}`
+            );
+
+            if (debug) {
+                log(
+                    "info",
+                    `OPENROUTER DETAIL: ${oneLine(error?.message)}`
+                );
+            }
+
             if (!isLast) {
-                console.log(
-                    "[LLM] Chuyển sang model dự phòng..."
+                log(
+                    "info",
+                    `FALLBACK -> ${models[index + 1]}`
                 );
 
                 await sleep(RETRY_DELAY_MS);
@@ -309,68 +456,35 @@ const generateAnswer = async (question, context) => {
             break;
         }
 
-        // ==============================================
-        // [06.2] KIỂM TRA JSON
-        // ==============================================
+        // -----------------------------------------------------
+        // PHÂN TÍCH JSON
+        // -----------------------------------------------------
 
         let data;
 
         try {
-            if (!rawBody.trim()) {
-                throw new Error(
-                    "Response body rỗng"
-                );
-            }
-
             data = JSON.parse(rawBody);
 
-        } catch (error) {
+        } catch (_) {
             lastError =
                 `Model ${model} trả về JSON không hợp lệ`;
 
-            console.warn(
-                "[LLM] Body không hợp lệ:",
-                {
-                    model,
-
-                    http_status:
-                        response.status,
-
-                    content_type:
-                        response.headers.get(
-                            "content-type"
-                        ),
-
-                    body_length:
-                        rawBody.length,
-
-                    looks_html:
-                        /^\s*</.test(rawBody),
-
-                    cf_ray:
-                        response.headers.get(
-                            "cf-ray"
-                        ),
-
-                    error:
-                        error instanceof Error
-                            ? error.message
-                            : "Unknown"
-                }
+            log(
+                "warn",
+                `OPENROUTER ERROR: INVALID_JSON | ` +
+                `HTTP ${response.status} | ${model}`
             );
 
-            const canFallback =
+            if (
                 !isLast &&
                 (
                     response.ok ||
-                    RETRYABLE_STATUS.has(
-                        response.status
-                    )
-                );
-
-            if (canFallback) {
-                console.log(
-                    "[LLM] Chuyển sang model dự phòng..."
+                    RETRYABLE_STATUS.has(response.status)
+                )
+            ) {
+                log(
+                    "info",
+                    `FALLBACK -> ${models[index + 1]}`
                 );
 
                 await sleep(RETRY_DELAY_MS);
@@ -380,87 +494,89 @@ const generateAnswer = async (question, context) => {
             break;
         }
 
-        // ==============================================
-        // [06.3] XỬ LÝ LỖI HTTP VÀ PROVIDER
-        // ==============================================
+        // -----------------------------------------------------
+        // LỖI HTTP / PROVIDER
+        // -----------------------------------------------------
 
         if (!response.ok || data?.error) {
-            const status = response.status;
+            const providerCode = Number(
+                data?.error?.code
+            );
 
-            const providerCode =
-                Number(data?.error?.code);
-
-            const effectiveStatus =
+            const status =
                 response.ok &&
                 Number.isInteger(providerCode) &&
                 providerCode > 0
                     ? providerCode
-                    : status;
+                    : response.status;
 
             const message =
                 data?.error?.message ||
                 `HTTP ${status}`;
 
             lastError =
-                `OpenRouter HTTP ${effectiveStatus}: ${message}`;
+                `OpenRouter HTTP ${status}: ${message}`;
 
-            console.warn(
-                "[LLM] Provider lỗi:",
-                {
-                    model,
-                    status,
-                    effectiveStatus,
-                    message
-                }
+            log(
+                "warn",
+                `OPENROUTER ERROR: HTTP ${status} | ` +
+                `${model} | ${oneLine(message)}`
             );
 
-            // Không fallback khi lỗi request,
-            // API key hoặc thiếu credit.
-            // Model không khả dụng (404) thì thử model kế tiếp.
-// Vẫn dừng với lỗi request 400, API key 401,
-// thiếu credit 402 hoặc quyền truy cập 403.
-const canFallback =
-    effectiveStatus === 404 ||
-    RETRYABLE_STATUS.has(effectiveStatus) ||
-    (
-        response.ok &&
-        !data?.error?.code
-    );
+            const canFallback =
+                status === 404 ||
+                RETRYABLE_STATUS.has(status) ||
+                (
+                    response.ok &&
+                    !data?.error?.code
+                );
 
             if (!canFallback || isLast) {
                 break;
             }
 
-            console.log(
-                "[LLM] Chuyển sang model dự phòng..."
+            log(
+                "info",
+                `FALLBACK -> ${models[index + 1]}`
             );
 
             await sleep(RETRY_DELAY_MS);
             continue;
         }
 
-        // ==============================================
-        // [06.4] KIỂM TRA CÂU TRẢ LỜI
-        // ==============================================
+        // -----------------------------------------------------
+        // ĐỌC CÂU TRẢ LỜI
+        // -----------------------------------------------------
 
         const choice = data?.choices?.[0];
 
-        const answer = extractAnswer(
+        const answer = extractOpenRouterAnswer(
             choice?.message?.content
         );
 
-        logUsage(
-            data,
-            choice,
-            model
+        const usage = data?.usage || {};
+
+        log(
+            "info",
+            `OPENROUTER TOKENS: ` +
+            `in=${usage.prompt_tokens ?? "?"} ` +
+            `out=${usage.completion_tokens ?? "?"} ` +
+            `reasoning=${
+                usage.completion_tokens_details?.reasoning_tokens ?? "?"
+            } ` +
+            `total=${usage.total_tokens ?? "?"} ` +
+            `cost=$${usage.cost ?? "?"}`
         );
 
         if (
             answer &&
             choice?.finish_reason !== "length"
         ) {
-            console.log(
-                `[LLM] Thành công với model: ${data.model || model}`
+            log(
+                "info",
+                `OPENROUTER SUCCESS: ` +
+                `${data.model || model} | ` +
+                duration(startedAt)
             );
 
             return {
@@ -474,32 +590,196 @@ const canFallback =
                 ? `Model ${model} chạm giới hạn token`
                 : `Model ${model} không tạo được câu trả lời`;
 
-        console.warn(
-            "[LLM] Câu trả lời không đạt:",
-            lastError
+        log(
+            "warn",
+            `OPENROUTER ERROR: ${oneLine(lastError)}`
         );
 
         if (!isLast) {
-            console.log(
-                "[LLM] Chuyển sang model dự phòng..."
+            log(
+                "info",
+                `FALLBACK -> ${models[index + 1]}`
             );
 
             await sleep(RETRY_DELAY_MS);
         }
     }
 
-    // ==================================================
-    // [07] TẤT CẢ MODEL ĐỀU THẤT BẠI
-    // ==================================================
-
     throw new Error(
-        `${lastError}. Đã thử tối đa ${models.length} model.`
+        `${lastError}. Đã thử tối đa ` +
+        `${models.length} model OpenRouter.`
     );
 };
 
-// ======================================================
-// [08] EXPORT
-// ======================================================
+// =============================================================
+// [E] HÀM ĐƯỢC RAG CONTROLLER SỬ DỤNG
+// =============================================================
+
+const generateAnswer = async (question, context) => {
+
+    if (
+        typeof question !== "string" ||
+        !question.trim() ||
+        typeof context !== "string" ||
+        !context.trim()
+    ) {
+        throw new Error(
+            "Câu hỏi hoặc ngữ cảnh RAG không hợp lệ"
+        );
+    }
+
+    // =========================================================
+    // [01] ĐỌC CẤU HÌNH
+    // =========================================================
+
+    // Gemini API key được tạo trong Google AI Studio.
+    const geminiKey =
+        process.env.GEMINI_API_KEY?.trim();
+
+    const geminiModel =
+        process.env.GEMINI_MODEL?.trim() ||
+        "gemini-3.5-flash-lite";
+
+    // OpenRouter giữ nguyên các biến cấu hình cũ.
+    const openRouterKey =
+        process.env.OPENROUTER_API_KEY?.trim();
+
+    const primary =
+        process.env.OPENROUTER_MODEL?.trim();
+
+    const fallback =
+        process.env.OPENROUTER_FALLBACK_MODEL?.trim() ||
+        "google/gemma-3-27b-it:free";
+
+    const auto =
+        process.env.OPENROUTER_AUTO_MODEL?.trim() ||
+        "openrouter/free";
+
+    const models = [
+        ...new Set(
+            [primary, fallback, auto].filter(Boolean)
+        )
+    ].slice(0, 3);
+
+    const hasGemini = Boolean(
+        geminiKey &&
+        geminiKey !== "null"
+    );
+
+    const hasOpenRouter = Boolean(
+        openRouterKey &&
+        openRouterKey !== "null" &&
+        primary
+    );
+
+    if (!hasGemini && !hasOpenRouter) {
+        throw new Error(
+            "Chưa cấu hình GEMINI_API_KEY " +
+            "hoặc OpenRouter API key/model"
+        );
+    }
+
+    // =========================================================
+    // [02] LOG RIÊNG CHO MỖI REQUEST
+    // =========================================================
+
+    const requestId = String(
+        ++llmRequestCounter
+    ).padStart(4, "0");
+
+    const startedAt = Date.now();
+
+    const prefix = `[LLM#${requestId}]`;
+
+    const debug =
+        process.env.LLM_LOG_DETAIL === "1";
+
+    const log = (level, message) => {
+        const writer =
+            level === "warn"
+                ? console.warn
+                : console.log;
+
+        writer(`${prefix} ${message}`);
+    };
+
+    console.log(
+        `\n========== LLM #${requestId} | ` +
+        new Date().toLocaleTimeString(
+            "vi-VN",
+            { hour12: false }
+        ) +
+        " =========="
+    );
+
+    const providerNames = [
+        hasGemini ? "Gemini" : null,
+        hasOpenRouter ? "OpenRouter" : null
+    ].filter(Boolean);
+
+    log(
+        "info",
+        `Providers: ${providerNames.join(" -> ")}`
+    );
+
+    // =========================================================
+    // [03] THỬ GEMINI TRƯỚC
+    // =========================================================
+
+    try {
+        if (hasGemini) {
+            const result = await tryGemini({
+                apiKey: geminiKey,
+                model: geminiModel,
+                question: question.trim(),
+                context: context.trim(),
+                log,
+                debug
+            });
+
+            if (result) {
+                return result;
+            }
+
+            if (hasOpenRouter) {
+                log(
+                    "info",
+                    "PROVIDER FALLBACK -> OpenRouter"
+                );
+            }
+        }
+
+        // =====================================================
+        // [04] FALLBACK SANG OPENROUTER
+        // =====================================================
+
+        if (hasOpenRouter) {
+            return await tryOpenRouter({
+                apiKey: openRouterKey,
+                models,
+                question: question.trim(),
+                context: context.trim(),
+                log,
+                debug
+            });
+        }
+
+        throw new Error(
+            "Gemini thất bại và chưa cấu hình " +
+            "OpenRouter dự phòng"
+        );
+
+    } finally {
+        console.log(
+            `========== LLM #${requestId} | END | ` +
+            `${duration(startedAt)} ==========\n`
+        );
+    }
+};
+
+// =============================================================
+// [F] EXPORT
+// =============================================================
 
 module.exports = {
     generateAnswer
